@@ -152,13 +152,28 @@ class HouseCupApp {
     const err = document.getElementById('entry-code-error');
     if (err) err.style.display = 'none';
 
-    const keys = Object.keys(this.schools);
     if (!drop || !box) return;
 
+    // Combine local schools and cloud-discovered schools
+    const schoolMap = {};
+    Object.keys(this.schools).forEach(k => {
+      const s = this.schools[k];
+      if (s) schoolMap[s.id || k] = { id: s.id || k, name: s.name, code: s.code };
+    });
+    if (this.cloudDirectory) {
+      Object.keys(this.cloudDirectory).forEach(k => {
+        const c = this.cloudDirectory[k];
+        if (c && !schoolMap[c.id || k]) {
+          schoolMap[c.id || k] = c;
+        }
+      });
+    }
+
+    const keys = Object.keys(schoolMap);
     if (keys.length > 0) {
       drop.innerHTML = '<option value="">-- Choose from saved schools --</option>';
       keys.forEach(k => {
-        const sch = this.schools[k];
+        const sch = schoolMap[k];
         const opt = document.createElement('option');
         opt.value = sch.id;
         opt.textContent = `${sch.name} (${sch.code})`;
@@ -236,8 +251,28 @@ class HouseCupApp {
     this.showScreen('screen-entry');
   }
 
-  switchSchool(schId) {
-    if (!this.schools[schId]) return;
+  async switchSchool(schId) {
+    if (!this.schools[schId]) {
+      // Fetch school definition from cloud if not yet loaded locally
+      if (this.cloudEnabled && this.cloudDb) {
+        try {
+          const snap = await this.cloudDb.ref('schools/' + schId).once('value');
+          const data = snap.val();
+          if (data) {
+            this.schools[schId] = data;
+          } else {
+            alert('School data could not be found.');
+            return;
+          }
+        } catch (e) {
+          console.warn('Error fetching school from cloud:', e);
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+
     this.activeSchoolId = schId;
     this.saveStorage();
     this.updateSchoolUI();
@@ -1335,11 +1370,15 @@ class HouseCupApp {
   // =========================================================================
 
   initCloudSync() {
-    const rawConfig = localStorage.getItem('housecup_saas_firebase_config');
-    if (!rawConfig) {
+    const DEFAULT_FIREBASE_URL = 'https://housecup-6fb50-default-rtdb.firebaseio.com';
+    const savedConfig = localStorage.getItem('housecup_saas_firebase_config');
+
+    if (savedConfig === 'disabled') {
       this.updateCloudStatusUI(false);
       return;
     }
+
+    const rawConfig = savedConfig || DEFAULT_FIREBASE_URL;
 
     try {
       if (typeof firebase === 'undefined') {
@@ -1353,8 +1392,11 @@ class HouseCupApp {
       if (clean.startsWith('{')) {
         configObj = JSON.parse(clean);
       } else {
-        // Direct Database URL (e.g. https://xxx-default-rtdb.firebaseio.com)
-        configObj = { databaseURL: clean.replace(/\/$/, '') };
+        // Direct Database URL
+        configObj = { 
+          databaseURL: clean.replace(/\/$/, ''),
+          projectId: 'housecup-6fb50'
+        };
       }
 
       if (!firebase.apps.length) {
@@ -1364,6 +1406,14 @@ class HouseCupApp {
       this.cloudEnabled = true;
       this.updateCloudStatusUI(true);
 
+      // Listen to directory of registered schools
+      this.listenToSchoolDirectory();
+
+      // Auto-sync any existing local schools to the cloud database
+      Object.keys(this.schools).forEach(k => {
+        this.syncSchoolToCloud(k);
+      });
+
       if (this.activeSchoolId) {
         this.listenToSchoolCloud(this.activeSchoolId);
       }
@@ -1371,6 +1421,14 @@ class HouseCupApp {
       console.warn('Firebase init error:', e);
       this.updateCloudStatusUI(false, e.message);
     }
+  }
+
+  listenToSchoolDirectory() {
+    if (!this.cloudEnabled || !this.cloudDb) return;
+    this.cloudDb.ref('school_directory').on('value', (snap) => {
+      this.cloudDirectory = snap.val() || {};
+      this.renderEntryScreen();
+    });
   }
 
   updateCloudStatusUI(connected, errorMsg = '') {
@@ -1472,7 +1530,7 @@ class HouseCupApp {
 
     const input = document.getElementById('sync-firebase-config-input');
     if (input) {
-      input.value = localStorage.getItem('housecup_saas_firebase_config') || '';
+      input.value = localStorage.getItem('housecup_saas_firebase_config') || 'https://housecup-6fb50-default-rtdb.firebaseio.com';
     }
     this.updateCloudStatusUI(this.cloudEnabled);
     this.openModal('modal-sync');
@@ -1505,7 +1563,7 @@ class HouseCupApp {
   }
 
   disconnectCloudSync() {
-    localStorage.removeItem('housecup_saas_firebase_config');
+    localStorage.setItem('housecup_saas_firebase_config', 'disabled');
     if (this.cloudDb && this.currentListeningSchoolId && this.cloudListener) {
       try {
         this.cloudDb.ref('schools/' + this.currentListeningSchoolId).off('value', this.cloudListener);
