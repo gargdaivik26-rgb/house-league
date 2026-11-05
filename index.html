@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>House Cup SaaS — Multi-School Edition</title>
+
+  <!-- Mobile & PWA meta tags -->
+  <meta name="theme-color" content="#12141A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="House Cup">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+
+  <!-- Google Fonts: Oswald & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-viewport">
+    <div class="mobile-frame" id="app-frame">
+
+      <!-- ===================================================================
+           SCREEN 0: FIRST SCREEN (School Code Entry or Add School)
+           =================================================================== -->
+      <section id="screen-entry" class="screen active">
+        <div style="padding: 30px 22px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-height: 100%;">
+          
+          <div class="crest-logo">
+            <div class="crest-ruby"></div>
+            <div class="crest-sapphire"></div>
+            <div class="crest-topaz"></div>
+            <div class="crest-emerald"></div>
+          </div>
+          <div class="font-oswald" style="font-weight: 700; font-size: 28px; letter-spacing: 1px; color: #F5F4F0;">HOUSE CUP</div>
+          <div style="font-size: 13px; color: var(--text-dim); margin-top: -12px;">School Championship Platform</div>
+
+          <div class="entry-screen-card">
+            <div style="font-size: 15px; font-weight: 700; color: #F5F4F0;">Access Your School</div>
+            <div style="font-size: 12.5px; color: var(--text-dim); line-height: 1.4;">
+              Enter your school's unique code to view the live scoreboard or award points:
+            </div>
+
+            <!-- School Code Input -->
+            <input type="text" id="entry-school-code" class="input-field" placeholder="Enter School Code (e.g. GWH-01)" style="text-transform: uppercase;">
+            <div id="entry-code-error" class="error-text" style="display: none;"></div>
+
+            <button class="primary-btn" onclick="app.submitSchoolCode()">Enter School</button>
+
+            <!-- Dropdown of already registered schools (if any exist) -->
+            <div id="entry-existing-schools-box" style="display: none; flex-direction: column; gap: 6px; margin-top: 4px;">
+              <div style="font-size: 11px; color: var(--text-sub); text-transform: uppercase;">Or select saved school:</div>
+              <select id="entry-schools-dropdown" class="input-field" style="padding: 10px; font-size: 13px;" onchange="if(this.value) app.switchSchool(this.value)">
+                <!-- Dynamic options -->
+              </select>
+            </div>
+
+            <!-- Divider -->
+            <div style="display: flex; align-items: center; gap: 10px; margin: 4px 0;">
+              <div style="flex: 1; height: 1px; background: var(--border-light);"></div>
+              <div style="font-size: 11px; color: var(--text-sub); text-transform: uppercase;">OR</div>
+              <div style="flex: 1; height: 1px; background: var(--border-light);"></div>
+            </div>
+
+            <!-- Add New School Button -->
+            <button class="primary-btn" style="background: rgba(244, 183, 64, 0.15); color: var(--accent-gold); border: 1px solid rgba(244, 183, 64, 0.35);" onclick="app.openRegisterSchoolModal()">
+              ➕ Add / Register New School
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 1: LOGIN (Within Selected School)
+           =================================================================== -->
+      <section id="screen-login" class="screen">
+        <div style="padding: 24px 22px 36px; display: flex; flex-direction: column; gap: 20px; min-height: 100%; justify-content: center;">
+          
+          <!-- School Switcher Pill -->
+          <div style="display: flex; justify-content: center;">
+            <div class="school-selector-pill" onclick="app.goToSchoolEntry()" title="Click to change school or enter code">
+              🏫 <span id="current-school-pill-text">School Name</span> ▾
+            </div>
+          </div>
+
+          <!-- App Crest & Title -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+            <div class="crest-logo" id="crest-logo-container">
+              <div class="crest-ruby" id="crest-slot-1"></div>
+              <div class="crest-sapphire" id="crest-slot-2"></div>
+              <div class="crest-topaz" id="crest-slot-3"></div>
+              <div class="crest-emerald" id="crest-slot-4"></div>
+            </div>
+            <div class="font-oswald" style="font-weight: 700; font-size: 28px; letter-spacing: 1px; color: #F5F4F0;">HOUSE CUP</div>
+            <div id="login-school-sub" style="font-size: 13.5px; color: rgba(245,244,240,0.5);">Points Championship</div>
+          </div>
+
+          <!-- Role Toggle -->
+          <div class="segment-bar">
+            <div id="btn-role-teacher" class="segment-btn active" onclick="app.setRole('teacher')">Teacher</div>
+            <div id="btn-role-student" class="segment-btn" onclick="app.setRole('student')">Student</div>
+          </div>
+
+          <!-- Teacher Login Box -->
+          <div id="form-teacher" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="text" id="teacher-username" class="input-field" placeholder="Username" autocomplete="username">
+            <input type="password" id="teacher-password" class="input-field" placeholder="Password" autocomplete="current-password">
+            <div id="login-error-teacher" class="error-text" style="display: none;"></div>
+            <div class="primary-btn" onclick="app.submitTeacherLogin()">Sign In</div>
+          </div>
+
+          <!-- Student Login Box (Full name or partial name match, NO examples) -->
+          <div id="form-student" style="display: none; flex-direction: column; gap: 12px;">
+            <input type="text" id="student-name-input" class="input-field" placeholder="Enter your name" autocomplete="off">
+            <div id="login-error-student" class="error-text" style="display: none;"></div>
+            <div class="primary-btn" onclick="app.submitStudentLogin()">View Scoreboard</div>
+          </div>
+
+          <!-- Footer: Sync Status & Admin Portal Link -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 0 4px;">
+            <span class="sync-status-indicator" onclick="app.openSyncModal()" style="cursor: pointer;">
+              <span id="sync-dot-login" class="sync-dot"></span>
+              <span id="sync-text-login" style="color: rgba(245,244,240,0.5); font-size: 11.5px;">Cloud Database Active</span>
+            </span>
+            <span onclick="app.openAdminLoginModal()" style="color: rgba(245,244,240,0.5); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              🔒 Admin Login
+            </span>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 2: HOME / SCOREBOARD (100% IDENTICAL TO ORIGINAL)
+           =================================================================== -->
+      <section id="screen-home" class="screen">
+        <!-- Top Bar -->
+        <div class="top-nav">
+          <div class="nav-title">HOUSE CUP</div>
+          <div class="nav-actions">
+            <span class="sync-status-indicator" onclick="app.openSyncModal()" style="cursor: pointer;" title="Sync Status">
+              <span id="sync-dot-home" class="sync-dot"></span>
+              <span style="font-size: 11px; color: rgba(245,244,240,0.5);">Sync</span>
+            </span>
+            <div id="home-session-name" class="session-name"></div>
+            <!-- Admin Portal Icon Button (Visible only to Admin) -->
+            <div id="btn-admin-gear" class="icon-btn" onclick="app.goToAdmin()" title="School Admin Portal" style="display: none;">
+              ⚙️
+            </div>
+            <div class="icon-btn" onclick="app.logout()" title="Sign Out">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="rgba(245,244,240,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scoreboard Table -->
+        <div style="padding: 0 20px;">
+          <div class="scoreboard-header">
+            <div>Rk</div>
+            <div>House</div>
+            <div style="text-align: right;">Pts</div>
+            <div style="text-align: right;">Live</div>
+          </div>
+          <div id="scoreboard-list" class="scoreboard-table">
+            <!-- Dynamic rows inserted by app.js -->
+          </div>
+        </div>
+
+        <!-- Recent Activity Feed -->
+        <div class="section-title">Recent Activity</div>
+        <div id="activity-list" class="activity-list">
+          <!-- Dynamic cards inserted by app.js -->
+        </div>
+
+        <!-- Floating Action Button (Teachers & Admins Only) -->
+        <div id="teacher-fab" class="fab-btn" onclick="app.goToSearch()" style="display: none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="#12141A" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          Points
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 3: FIND STUDENT (100% IDENTICAL TO ORIGINAL)
+           =================================================================== -->
+      <section id="screen-search" class="screen">
+        <div class="top-nav">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="icon-btn" onclick="app.goToHome()">
+              <svg width="9" height="15" viewBox="0 0 9 15">
+                <path d="M8 1L1 7.5L8 14" stroke="#F5F4F0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="nav-title">Find Student</div>
+          </div>
+        </div>
+
+        <div style="padding: 0 20px 12px; display: flex; flex-direction: column; gap: 10px;">
+          <input type="text" id="search-student-query" class="input-field" placeholder="Search by name" oninput="app.filterStudents()">
+          
+          <div style="display: flex; gap: 8px;">
+            <select id="filter-grade" class="input-field" style="padding: 9px 8px; font-size: 13px;" onchange="app.filterStudents()">
+              <option value="">All Grades</option>
+              <option value="9">Grade 9</option>
+              <option value="10">Grade 10</option>
+            </select>
+            <select id="filter-house" class="input-field" style="padding: 9px 8px; font-size: 13px;" onchange="app.filterStudents()">
+              <option value="">All Houses</option>
+              <!-- Dynamic options -->
+            </select>
+            <select id="filter-division" class="input-field" style="padding: 9px 8px; font-size: 13px;" onchange="app.filterStudents()">
+              <option value="">All Divs</option>
+              <option value="A">Div A</option>
+              <option value="B">Div B</option>
+              <option value="C">Div C</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filtered student list sorted Grade-first, then Division-first -->
+        <div id="student-search-results" style="flex: 1; overflow-y: auto; padding: 0 20px 30px; display: flex; flex-direction: column; gap: 8px;">
+          <!-- Injected dynamically -->
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 4: UPDATE POINTS (100% IDENTICAL TO ORIGINAL)
+           =================================================================== -->
+      <section id="screen-action" class="screen">
+        <div class="top-nav">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="icon-btn" onclick="app.goBackFromAction()">
+              <svg width="9" height="15" viewBox="0 0 9 15">
+                <path d="M8 1L1 7.5L8 14" stroke="#F5F4F0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="nav-title">Update Points</div>
+          </div>
+        </div>
+
+        <div style="padding: 0 20px 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+          
+          <!-- Selected Student Info Card -->
+          <div style="background: var(--bg-card); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border-light);">
+            <div id="action-student-name" style="font-size: 17px; font-weight: 700; color: #F5F4F0;"></div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div id="action-house-dot" class="house-dot"></div>
+              <div id="action-student-sub" style="font-size: 12.5px; color: var(--text-dim);"></div>
+            </div>
+          </div>
+
+          <!-- Add / Deduct Segmented Toggle -->
+          <div class="segment-bar">
+            <div id="btn-dir-add" class="segment-btn active" style="background: #28B577; color: #12141A;" onclick="app.setDirection('add')">Add</div>
+            <div id="btn-dir-deduct" class="segment-btn" onclick="app.setDirection('deduct')">Deduct</div>
+          </div>
+
+          <!-- Criteria Selection -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="section-title" style="padding: 0; font-size: 11.5px;">Criteria</div>
+            <div id="criteria-list-container" class="criteria-container">
+              <!-- Inserted dynamically -->
+            </div>
+
+            <!-- "Other" Custom Reason Input Box -->
+            <div id="other-reason-container" style="display: none; flex-direction: column; gap: 6px; margin-top: 4px;">
+              <div style="font-size: 11.5px; letter-spacing: 0.5px; color: var(--text-sub); text-transform: uppercase;">Specify Reason</div>
+              <input type="text" id="action-custom-reason" class="input-field" placeholder="Write custom reason for points..." oninput="app.onCustomReasonInput(this.value)">
+            </div>
+          </div>
+
+          <!-- Point Chips (10, 20, 50) -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="section-title" style="padding: 0; font-size: 11.5px;">Points</div>
+            <div class="points-row">
+              <div id="chip-10" class="pts-chip active-add" onclick="app.setPoints(10)">10</div>
+              <div id="chip-20" class="pts-chip" onclick="app.setPoints(20)">20</div>
+              <div id="chip-50" class="pts-chip" onclick="app.setPoints(50)">50</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Apply Button Footer -->
+        <div style="padding: 14px 20px 24px; flex-shrink: 0;">
+          <div id="btn-apply-points" class="primary-btn disabled" onclick="app.applyPoints()">Select Criteria</div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCREEN 5: PREVIOUS-STYLE SCHOOL ADMIN PORTAL (WITHOUT ADD SCHOOL)
+           =================================================================== -->
+      <section id="screen-admin" class="screen">
+        
+        <div class="admin-header">
+          <div>
+            <div class="admin-badge">School Admin Portal</div>
+            <div style="font-size:16px; font-weight:700; margin-top:2px;" id="admin-school-title">School Name</div>
+          </div>
+          <button class="icon-btn" onclick="app.goToHome()" title="Back to Scoreboard">✕</button>
+        </div>
+
+        <!-- Navigation Tabs (Add School tab removed for Admin) -->
+        <div class="admin-nav-tabs">
+          <div class="admin-nav-tab active" onclick="app.setAdminTab('profile')">🏫 Profile</div>
+          <div class="admin-nav-tab" onclick="app.setAdminTab('houses')">🛡️ Houses</div>
+          <div class="admin-nav-tab" onclick="app.setAdminTab('criteria')">📋 Criteria</div>
+          <div class="admin-nav-tab" onclick="app.setAdminTab('roster')">👥 Roster & Paste Excel</div>
+          <div class="admin-nav-tab" onclick="app.setAdminTab('term')">🏆 Term & Reset</div>
+        </div>
+
+        <div class="admin-content">
+          
+          <!-- TAB 1: SCHOOL PROFILE (User decides Admin Code here) -->
+          <div class="admin-panel active" id="admin-panel-profile">
+            <div class="admin-card">
+              <div class="admin-card-title">School Identity & Settings</div>
+              
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">School Name</label>
+              <input type="text" class="input-field" id="admin-input-school-name">
+              
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Motto / Tagline</label>
+              <input type="text" class="input-field" id="admin-input-school-motto">
+
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">School Code</label>
+              <input type="text" class="input-field" id="admin-input-school-code">
+
+              <!-- User Decides Admin Code -->
+              <div style="background: rgba(157, 101, 255, 0.08); border: 1px solid rgba(157, 101, 255, 0.25); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-size:12px; color:#c9a7ff; font-weight:700;">🔐 Your Admin Security Code / PIN</label>
+                <input type="text" class="input-field" id="admin-input-school-pin" placeholder="Enter your private Admin Code">
+                <div style="font-size:11px; color:var(--text-dim);">You can change this code anytime. Only people with this code can access this Admin Portal.</div>
+              </div>
+
+              <button class="primary-btn" style="background:var(--admin-purple); color:#fff;" onclick="app.saveSchoolProfile()">Save Profile Updates</button>
+            </div>
+          </div>
+
+          <!-- TAB 2: HOUSE BUILDER (DYNAMIC HOUSES) -->
+          <div class="admin-panel" id="admin-panel-houses">
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <div class="admin-card-title">Dynamic House System</div>
+                <button class="primary-btn" style="background:var(--admin-purple); color:#fff; padding:6px 12px; font-size:12px;" onclick="app.openAddHouseModal()">+ Add House</button>
+              </div>
+              <div style="font-size:12px; color:var(--text-dim);">Configure houses, custom colors, and emblems (supports 2 to 8 houses).</div>
+              
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Color</th>
+                    <th>Emblem</th>
+                    <th>House Name</th>
+                    <th>Live Points</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-houses-tbody">
+                  <!-- Populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 3: CRITERIA & RULES -->
+          <div class="admin-panel" id="admin-panel-criteria">
+            <div class="admin-card">
+              <div class="admin-card-title">Positive Criteria (Add Points)</div>
+              <div style="display:flex; gap:8px;">
+                <input type="text" class="input-field" id="new-pos-criteria" placeholder="e.g. Science Fair Winner" style="flex:1;">
+                <button class="primary-btn" style="padding:0 16px;" onclick="app.addCriteria('add')">Add</button>
+              </div>
+              <div id="admin-pos-criteria-list" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-title">Negative Criteria (Deduct Points)</div>
+              <div style="display:flex; gap:8px;">
+                <input type="text" class="input-field" id="new-neg-criteria" placeholder="e.g. Incomplete Homework" style="flex:1;">
+                <button class="primary-btn" style="padding:0 16px; background:var(--action-deduct); color:#fff;" onclick="app.addCriteria('deduct')">Add</button>
+              </div>
+              <div id="admin-neg-criteria-list" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+            </div>
+          </div>
+
+          <!-- TAB 4: ROSTER & PASTE EXCEL (ADMIN-ONLY) -->
+          <div class="admin-panel" id="admin-panel-roster">
+            
+            <!-- Paste Student Excel Card -->
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <div class="admin-card-title">📥 Paste Student Data from Excel / Sheets</div>
+                <div class="badge-pill" style="background:rgba(40,181,119,0.15); color:#28B577;">Admin Only</div>
+              </div>
+              <div style="font-size:12px; color:var(--text-dim); line-height:1.4;">
+                Select columns in <strong>Excel</strong> or <strong>Google Sheets</strong>, copy (Ctrl+C), and paste (Ctrl+V) below:<br>
+                <code style="color:var(--accent-gold);">Name [Tab] Grade [Tab] Division [Tab] House</code>
+              </div>
+              <textarea id="excel-students-input" class="excel-paste-box" placeholder="Example from Excel:&#10;Rahul Mehta&#9;9&#9;A&#9;Ruby&#10;Priya Patel&#9;10&#9;B&#9;Emerald&#10;Daivik Garg&#9;10&#9;A&#9;Ruby"></textarea>
+              <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; padding:12px;" onclick="app.importStudentsFromExcel()">
+                Import Students from Excel
+              </button>
+
+              <div style="font-size:13px; font-weight:700; margin-top:8px;">
+                Enrolled Students (<span id="admin-student-count">0</span>)
+              </div>
+              <input type="text" id="admin-student-search-input" class="input-field" placeholder="🔍 Search student to delete (by name, grade, house)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
+              <div style="max-height: 200px; overflow-y: auto;">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Grade & Div</th>
+                      <th>House</th>
+                      <th>Delete</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-students-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Paste Teacher Excel Card -->
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <div class="admin-card-title">📥 Paste Teacher Data from Excel</div>
+                <div class="badge-pill" style="background:rgba(40,181,119,0.15); color:#28B577;">Admin Only</div>
+              </div>
+              <div style="font-size:12px; color:var(--text-dim); line-height:1.4;">
+                Format: <code style="color:var(--accent-gold);">Username [Tab] Password [Tab] Display Name</code>
+              </div>
+              <textarea id="excel-teachers-input" class="excel-paste-box" placeholder="Example from Excel:&#10;siddharth&#9;pass1&#9;Mr. Siddharth&#10;yogesh&#9;pass2&#9;Mr. Yogesh"></textarea>
+              <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; padding:12px;" onclick="app.importTeachersFromExcel()">
+                Import Teachers from Excel
+              </button>
+
+              <div style="font-size:13px; font-weight:700; margin-top:8px;">
+                Staff Teachers (<span id="admin-teacher-count">0</span>)
+              </div>
+              <input type="text" id="admin-teacher-search-input" class="input-field" placeholder="🔍 Search teacher to delete (by username or display name)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Display Name</th>
+                    <th>Password</th>
+                    <th>Delete</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-teachers-tbody"></tbody>
+              </table>
+            </div>
+
+          </div>
+
+          <!-- TAB 5: TERM & RESET -->
+          <div class="admin-panel" id="admin-panel-term">
+            <div class="admin-card">
+              <div class="admin-card-title">Current Term: <span id="admin-term-name-display" style="color:var(--accent-gold);">Term 1</span></div>
+              <div style="font-size:13px; color:var(--text-dim); line-height:1.5;">
+                Conclude the academic term to record the winner into permanent history and safely reset all house points to 0 for the new semester.
+              </div>
+              <button class="primary-btn" style="background:#E5354F; color:#fff; font-size:14px; margin-top:4px;" onclick="app.concludeTermAndReset()">
+                🏆 Conclude Term & Reset Scores
+              </button>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-title">Term History & Past Winners</div>
+              <div id="admin-term-history-list" style="font-size:13px; color:var(--text-dim);">
+                No past terms archived yet.
+              </div>
+            </div>
+
+            <div class="admin-card">
+              <div class="admin-card-title">Export & Backup</div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="primary-btn" style="flex:1; font-size:13px; padding:10px;" onclick="app.exportActivityCSV()">📊 Export Activity CSV</button>
+                <button class="primary-btn" style="flex:1; font-size:13px; padding:10px;" onclick="app.exportSchoolJSON()">💾 Download JSON Backup</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           MODAL: REGISTER NEW SCHOOL (Dynamic Houses — ZERO Hardcoding)
+           =================================================================== -->
+      <div id="modal-register-school" class="modal-overlay" onclick="if(event.target===this) app.closeRegisterSchoolModal()">
+        <div class="modal-content" style="max-width: 480px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 19px; font-weight: 700;">Register School</div>
+            <div class="icon-btn" onclick="app.closeRegisterSchoolModal()">✕</div>
+          </div>
+
+          <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Name</label>
+          <input type="text" id="reg-school-name" class="input-field" placeholder="e.g. Oakridge International Academy">
+
+          <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Code</label>
+          <input type="text" id="reg-school-code" class="input-field" placeholder="e.g. OAK-01" style="text-transform: uppercase;">
+
+          <!-- User Decides Admin Code -->
+          <div style="background: rgba(157, 101, 255, 0.08); border: 1px solid rgba(157, 101, 255, 0.3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; color: #c9a7ff; font-weight: 700;">🔐 Set Your Admin Security Code / PIN</label>
+            <input type="text" id="reg-school-pin" class="input-field" placeholder="Enter your private Admin Code (e.g. 9988 or mySecret)">
+            <div style="font-size: 11px; color: var(--text-dim);">You decide this code. You will need it to unlock the School Admin Portal.</div>
+          </div>
+
+          <!-- Fully Dynamic House System (Admin adds as many houses as they want!) -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <label style="font-size: 12px; font-weight: 700; color: #F5F4F0;">House System (Dynamic)</label>
+                <div style="font-size: 11px; color: var(--text-dim);">Add as many houses as your school uses (minimum 2):</div>
+              </div>
+              <button class="primary-btn" style="padding: 5px 10px; font-size: 11.5px; background: rgba(255,255,255,0.08); color: var(--text-main);" onclick="app.addHouseRowToRegisterForm()">
+                + Add House
+              </button>
+            </div>
+
+            <!-- Dynamic House Rows Container -->
+            <div id="reg-dynamic-houses-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+              <!-- Injected dynamically by app.js -->
+            </div>
+          </div>
+
+          <button class="primary-btn" onclick="app.submitSchoolRegistration()" style="padding: 14px; margin-top: 4px;">
+            Create & Launch School
+          </button>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: ADMIN LOGIN (Checks against user's chosen Admin Code)
+           =================================================================== -->
+      <div id="modal-admin-login" class="modal-overlay" onclick="if(event.target===this) app.closeAdminLoginModal()">
+        <div class="modal-content">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">🔒 School Admin Login</div>
+            <div class="icon-btn" onclick="app.closeAdminLoginModal()">✕</div>
+          </div>
+
+          <div style="font-size: 13px; color: var(--text-dim);">
+            Enter the Admin Security Code for <strong id="admin-modal-school-title" style="color: #F5F4F0;">School</strong>:
+          </div>
+
+          <input type="password" id="modal-admin-pin" class="input-field" placeholder="Enter your Admin Code">
+          <div id="modal-admin-error" class="error-text" style="display: none;"></div>
+
+          <div class="primary-btn" onclick="app.submitModalAdminLogin()" style="padding: 12px;">
+            Unlock Admin Portal
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: ADD HOUSE IN ADMIN PORTAL
+           =================================================================== -->
+      <div id="modal-add-house" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-add-house')">
+        <div class="modal-content">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">Add New House</div>
+            <div class="icon-btn" onclick="app.closeModal('modal-add-house')">✕</div>
+          </div>
+          
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">House Name</label>
+          <input type="text" id="new-house-name" placeholder="e.g. Gryffindor or Pegasus" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Emblem Emoji / Symbol</label>
+          <input type="text" id="new-house-emblem" placeholder="e.g. 🦁 or 🦅 or 🔥" maxlength="3" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Brand Color</label>
+          <div class="color-presets-row" id="color-presets">
+            <div class="color-dot-preset selected" style="background:#E5354F;" onclick="app.selectHouseColor('#E5354F')"></div>
+            <div class="color-dot-preset" style="background:#2F72E0;" onclick="app.selectHouseColor('#2F72E0')"></div>
+            <div class="color-dot-preset" style="background:#EAAB1E;" onclick="app.selectHouseColor('#EAAB1E')"></div>
+            <div class="color-dot-preset" style="background:#28B577;" onclick="app.selectHouseColor('#28B577')"></div>
+            <div class="color-dot-preset" style="background:#9D65FF;" onclick="app.selectHouseColor('#9D65FF')"></div>
+            <div class="color-dot-preset" style="background:#06B6D4;" onclick="app.selectHouseColor('#06B6D4')"></div>
+            <div class="color-dot-preset" style="background:#F97316;" onclick="app.selectHouseColor('#F97316')"></div>
+            <div class="color-dot-preset" style="background:#EC4899;" onclick="app.selectHouseColor('#EC4899')"></div>
+          </div>
+          <input type="color" id="custom-house-color" value="#E5354F" onchange="app.selectHouseColor(this.value)" style="margin-top:6px; cursor:pointer; width:100%; height:36px; border-radius:8px; border:none; background:transparent;">
+
+          <button class="primary-btn" style="background:var(--admin-purple); color:#fff;" onclick="app.saveNewHouse()">Create House</button>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: SYNC SETTINGS & CLOUD REALTIME DATABASE
+           =================================================================== -->
+      <div id="modal-sync" class="modal-overlay" onclick="if(event.target===this) app.closeSyncModal()">
+        <div class="modal-content" style="max-width: 360px; max-height: 85vh; overflow-y: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">Multi-School Cloud Sync</div>
+            <div class="icon-btn" onclick="app.closeSyncModal()">✕</div>
+          </div>
+
+          <div id="sync-status-banner" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+            <div id="sync-modal-dot" class="sync-dot"></div>
+            <div>
+              <div id="sync-modal-status-title" style="font-size: 12.5px; font-weight: 600; color: #F5F4F0;">Local Storage Mode</div>
+              <div id="sync-modal-status-sub" style="font-size: 11px; color: var(--text-dim);">Changes stay on this device only</div>
+            </div>
+          </div>
+
+          <div style="font-size: 12.5px; color: var(--text-dim); line-height: 1.45;">
+            Active School: <strong id="sync-school-name" style="color: #F5F4F0;">None</strong><br>
+            To sync live across different devices and locations (e.g. Malad East &amp; West) in real time with 100% separate school storage, connect your free Google Firebase database below.
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 11.5px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Firebase Database URL / Config</label>
+            <textarea id="sync-firebase-config-input" class="input-field" rows="3" placeholder='Paste your Firebase Database URL (e.g. https://your-app-default-rtdb.firebaseio.com) or Firebase config JSON' style="font-size: 11.5px; font-family: monospace; resize: vertical; line-height: 1.4;"></textarea>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="primary-btn" style="padding: 10px; flex: 1;" onclick="app.saveCloudSyncConfig()">Connect &amp; Sync</button>
+            <button class="btn-cancel" style="padding: 10px; width: auto;" onclick="app.disconnectCloudSync()">Disconnect</button>
+          </div>
+
+          <div style="font-size: 11px; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+            🔒 <strong>Multi-Tenant Isolation:</strong> Each school is saved under its own separate branch (<code>/schools/&lt;code&gt;</code>). School A can never see or modify School B.
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notification -->
+      <div id="toast" class="toast-msg"></div>
+
+    </div>
+  </div>
+
+  <!-- Firebase Cloud Realtime Sync (Zero-Backend Multi-Device Live Sync) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script src="app.js?v=2.2"></script>
+</body>
+</html>

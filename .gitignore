@@ -1,0 +1,11 @@
+# Node dependencies
+node_modules/
+npm-debug.log
+
+# Local database file (if running local Node server)
+schools-db.json
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+*.tmp
