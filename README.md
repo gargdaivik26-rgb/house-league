@@ -55,7 +55,44 @@ The Admin Panel features the full, rich layout from the previous design, with th
 
 ---
 
-## 🚀 How to Test
+## 🌐 Multi-Location Live Cloud Sync (Malad East & Malad West)
+
+To synchronize live between different computers, phones, or locations in real-time (e.g. Malad East and Malad West):
+1. The app has a built-in **Firebase Realtime Database** client.
+2. In the app top bar (or login screen), click **`Cloud Database` / `Sync`**.
+3. Paste your free Firebase Database URL (e.g. `https://your-housecup-default-rtdb.firebaseio.com`) and click **`Connect & Sync`**.
+4. **Instant 200ms Live Sync:** When anyone in Malad East awards points, everyone in Malad West sees the scoreboard tick up live without refreshing!
+5. **Multi-Tenant School Isolation:** Each school has its own completely separate room (`/schools/<schoolCode>`). School A cannot view or touch School B's points or data.
+
+---
+
+## 🚀 How to Upload to GitHub and Host Live (Separately from Original App)
+
+Because this project is in `C:\Users\Dell\OneDrive\Desktop\HouseCupSaaS`, it is already an independent Git repository completely separate from your original school app.
+
+### Steps to Deploy to a New GitHub Repository:
+1. Open your browser and go to [github.com/new](https://github.com/new).
+2. Set **Repository name** to: `housecup-saas` (or `housecup-multischool`).
+3. Leave it Public (so GitHub Pages is free) and do **not** check "Add a README file" (as we already have one).
+4. Click **Create repository**.
+5. In your command line (PowerShell):
+   ```powershell
+   cd "C:\Users\Dell\OneDrive\Desktop\HouseCupSaaS"
+   git remote add origin https://github.com/YOUR_GITHUB_USERNAME/housecup-saas.git
+   git push -u origin main
+   ```
+6. **Turn on Live Hosting (GitHub Pages):**
+   - In your GitHub repo, go to **Settings** &rarr; **Pages** (in left sidebar).
+   - Under *Build and deployment*, set **Branch** to `main` and folder `/ (root)`.
+   - Click **Save**.
+   - Within 1 minute, your new SaaS application is live at:
+     ```text
+     https://YOUR_GITHUB_USERNAME.github.io/housecup-saas/
+     ```
+
+---
+
+## 🚀 How to Test Locally
 1. Open folder: `C:\Users\Dell\OneDrive\Desktop\HouseCupSaaS`
 2. Double-click [**`index.html`**](file:///C:/Users/Dell/OneDrive/Desktop/HouseCupSaaS/index.html) to open in your browser.
 3. You will see the **School Code Entry** screen. Click **`➕ Add / Register New School`**, enter your school name, set your **own Admin Code**, and add as many custom houses as you like!
