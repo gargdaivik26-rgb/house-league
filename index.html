@@ -94,6 +94,7 @@
             </div>
             <div class="font-oswald" style="font-weight: 700; font-size: 28px; letter-spacing: 1px; color: #F5F4F0;">HOUSE CUP</div>
             <div id="login-school-sub" style="font-size: 13.5px; color: rgba(245,244,240,0.5);">Points Championship</div>
+            <div id="login-school-motto" style="font-size: 12.5px; font-style: italic; color: var(--accent-gold); opacity: 0.95; text-align: center; max-width: 320px; line-height: 1.3; display: none;"></div>
           </div>
 
           <!-- Role Toggle -->
@@ -105,7 +106,10 @@
           <!-- Teacher Login Box -->
           <form id="form-teacher" autocomplete="off" onsubmit="event.preventDefault(); app.submitTeacherLogin();" style="display: flex; flex-direction: column; gap: 12px;">
             <input type="text" id="teacher-username" class="input-field" placeholder="Username" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-            <input type="password" id="teacher-password" class="input-field" placeholder="Password" autocomplete="new-password">
+            <div class="password-field-wrapper">
+              <input type="password" id="teacher-password" class="input-field" placeholder="Password" autocomplete="new-password">
+              <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('teacher-password', this)" title="Show Password">👁️</button>
+            </div>
             <div id="login-error-teacher" class="error-text" style="display: none;"></div>
             <button type="submit" class="primary-btn" style="border: none;">Sign In</button>
           </form>
@@ -154,6 +158,15 @@
               </svg>
             </div>
           </div>
+        </div>
+
+        <!-- School Banner with Motto & Academic Period -->
+        <div id="home-school-banner" style="padding: 10px 20px 6px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
+            <div id="home-school-display-name" style="font-family: 'Oswald', sans-serif; font-size: 19px; font-weight: 700; color: #F5F4F0; letter-spacing: 0.5px;"></div>
+            <span id="home-school-period-badge" class="badge-pill" style="background: rgba(244,183,64,0.15); color: var(--accent-gold); font-size: 11px;"></span>
+          </div>
+          <div id="home-school-display-motto" style="font-size: 12.5px; font-style: italic; color: var(--accent-gold); opacity: 0.9; margin-top: 1px; display: none;"></div>
         </div>
 
         <!-- Scoreboard Table -->
@@ -310,7 +323,7 @@
           <div class="admin-nav-tab" onclick="app.setAdminTab('houses')">🛡️ Houses</div>
           <div class="admin-nav-tab" onclick="app.setAdminTab('criteria')">📋 Criteria</div>
           <div class="admin-nav-tab" onclick="app.setAdminTab('roster')">👥 Roster & Paste Excel</div>
-          <div class="admin-nav-tab" onclick="app.setAdminTab('term')">🏆 Term & Reset</div>
+          <div id="admin-tab-nav-reset" class="admin-nav-tab" onclick="app.setAdminTab('term')">🏆 Term & Reset</div>
         </div>
 
         <div class="admin-content">
@@ -326,13 +339,22 @@
               <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Motto / Tagline</label>
               <input type="text" class="input-field" id="admin-input-school-motto">
 
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Points Reset Cycle</label>
+              <select id="admin-input-school-cycle" class="input-field" style="background:#1B1E27; color:#F5F4F0; cursor:pointer;">
+                <option value="yearly">📅 Yearly / Annual (End of Academic Year)</option>
+                <option value="term">🗓️ Term-Wise (Term 1, Term 2, Term 3)</option>
+              </select>
+
               <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">School Code</label>
               <input type="text" class="input-field" id="admin-input-school-code">
 
               <!-- User Decides Admin Code -->
               <div style="background: rgba(157, 101, 255, 0.08); border: 1px solid rgba(157, 101, 255, 0.25); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
                 <label style="font-size:12px; color:#c9a7ff; font-weight:700;">🔐 Your Admin Security Code / PIN</label>
-                <input type="text" class="input-field" id="admin-input-school-pin" placeholder="Enter your private Admin Code">
+                <div class="password-field-wrapper">
+                  <input type="password" class="input-field" id="admin-input-school-pin" placeholder="Enter your private Admin Code">
+                  <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('admin-input-school-pin', this)" title="Show Admin Code">👁️</button>
+                </div>
                 <div style="font-size:11px; color:var(--text-dim);">You can change this code anytime. Only people with this code can access this Admin Portal.</div>
               </div>
 
@@ -356,7 +378,7 @@
                     <th>Emblem</th>
                     <th>House Name</th>
                     <th>Live Points</th>
-                    <th>Action</th>
+                    <th style="text-align: right;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="admin-houses-tbody">
@@ -457,20 +479,20 @@
 
           </div>
 
-          <!-- TAB 5: TERM & RESET -->
+          <!-- TAB 5: TERM & RESET / ANNUAL RESET -->
           <div class="admin-panel" id="admin-panel-term">
             <div class="admin-card">
-              <div class="admin-card-title">Current Term: <span id="admin-term-name-display" style="color:var(--accent-gold);">Term 1</span></div>
-              <div style="font-size:13px; color:var(--text-dim); line-height:1.5;">
+              <div class="admin-card-title"><span id="admin-reset-cycle-header">Current Term:</span> <span id="admin-term-name-display" style="color:var(--accent-gold);">Term 1</span></div>
+              <div id="admin-reset-cycle-desc" style="font-size:13px; color:var(--text-dim); line-height:1.5;">
                 Conclude the academic term to record the winner into permanent history and safely reset all house points to 0 for the new semester.
               </div>
-              <button class="primary-btn" style="background:#E5354F; color:#fff; font-size:14px; margin-top:4px;" onclick="app.concludeTermAndReset()">
+              <button id="admin-reset-cycle-btn" class="primary-btn" style="background:#E5354F; color:#fff; font-size:14px; margin-top:4px;" onclick="app.concludeTermAndReset()">
                 🏆 Conclude Term & Reset Scores
               </button>
             </div>
 
             <div class="admin-card">
-              <div class="admin-card-title">Term History & Past Winners</div>
+              <div class="admin-card-title" id="admin-history-title">Term History & Past Winners</div>
               <div id="admin-term-history-list" style="font-size:13px; color:var(--text-dim);">
                 No past terms archived yet.
               </div>
@@ -492,14 +514,30 @@
            MODAL: REGISTER NEW SCHOOL (Dynamic Houses — ZERO Hardcoding)
            =================================================================== -->
       <div id="modal-register-school" class="modal-overlay" onclick="if(event.target===this) app.closeRegisterSchoolModal()">
-        <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-content" style="max-width: 490px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div class="font-oswald" style="font-size: 19px; font-weight: 700;">Register School</div>
             <div class="icon-btn" onclick="app.closeRegisterSchoolModal()">✕</div>
           </div>
 
+          <!-- Step 1: Points Reset Cycle (First Question) -->
+          <div style="background: rgba(244, 183, 64, 0.08); border: 1px solid rgba(244, 183, 64, 0.25); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; color: var(--accent-gold); font-weight: 700;">⏱️ Step 1: Points Reset Cycle</label>
+            <div style="font-size: 11px; color: var(--text-dim);">How does your school conclude championships and reset points?</div>
+            <div class="segment-bar" style="margin: 3px 0;">
+              <div id="btn-reg-cycle-yearly" class="segment-btn active" onclick="app.setRegisterCycle('yearly')">📅 Yearly (e.g. Witty)</div>
+              <div id="btn-reg-cycle-term" class="segment-btn" onclick="app.setRegisterCycle('term')">🗓️ Term-Wise (e.g. Poddar)</div>
+            </div>
+            <div id="reg-cycle-hint" style="font-size: 11px; color: rgba(245,244,240,0.65); line-height: 1.35;">
+              Points accumulate across the full academic year and reset once at the end of the year.
+            </div>
+          </div>
+
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Name</label>
           <input type="text" id="reg-school-name" class="input-field" placeholder="e.g. Oakridge International Academy">
+
+          <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Motto / Tagline</label>
+          <input type="text" id="reg-school-motto" class="input-field" placeholder="e.g. Honour, Excellence, Integrity">
 
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Code</label>
           <input type="text" id="reg-school-code" class="input-field" placeholder="e.g. OAK-01" style="text-transform: uppercase;">
@@ -507,7 +545,10 @@
           <!-- User Decides Admin Code -->
           <div style="background: rgba(157, 101, 255, 0.08); border: 1px solid rgba(157, 101, 255, 0.3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
             <label style="font-size: 12px; color: #c9a7ff; font-weight: 700;">🔐 Set Your Admin Security Code / PIN</label>
-            <input type="text" id="reg-school-pin" class="input-field" placeholder="Enter your private Admin Code (e.g. 9988 or mySecret)">
+            <div class="password-field-wrapper">
+              <input type="password" id="reg-school-pin" class="input-field" placeholder="Enter your private Admin Code (e.g. 9988 or mySecret)">
+              <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('reg-school-pin', this)" title="Show Admin Code">👁️</button>
+            </div>
             <div style="font-size: 11px; color: var(--text-dim);">You decide this code. You will need it to unlock the School Admin Portal.</div>
           </div>
 
@@ -549,7 +590,10 @@
             Enter the Admin Security Code for <strong id="admin-modal-school-title" style="color: #F5F4F0;">School</strong>:
           </div>
 
-          <input type="password" id="modal-admin-pin" class="input-field" placeholder="Enter your Admin Code">
+          <div class="password-field-wrapper">
+            <input type="password" id="modal-admin-pin" class="input-field" placeholder="Enter your Admin Code">
+            <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('modal-admin-pin', this)" title="Show Admin Code">👁️</button>
+          </div>
           <div id="modal-admin-error" class="error-text" style="display: none;"></div>
 
           <div class="primary-btn" onclick="app.submitModalAdminLogin()" style="padding: 12px;">
@@ -588,6 +632,41 @@
           <input type="color" id="custom-house-color" value="#E5354F" onchange="app.selectHouseColor(this.value)" style="margin-top:6px; cursor:pointer; width:100%; height:36px; border-radius:8px; border:none; background:transparent;">
 
           <button class="primary-btn" style="background:var(--admin-purple); color:#fff;" onclick="app.saveNewHouse()">Create House</button>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: EDIT HOUSE IN ADMIN PORTAL (Name, Emblem, Color)
+           =================================================================== -->
+      <div id="modal-edit-house" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-edit-house')">
+        <div class="modal-content" style="max-width: 440px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">✏️ Edit House</div>
+            <div class="icon-btn" onclick="app.closeModal('modal-edit-house')">✕</div>
+          </div>
+          
+          <input type="hidden" id="edit-house-orig-id">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">House Name</label>
+          <input type="text" id="edit-house-name" placeholder="House Name" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Emblem Emoji / Symbol</label>
+          <input type="text" id="edit-house-emblem" placeholder="e.g. 🦁, 🦅, 🔥" maxlength="3" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Brand Color</label>
+          <div class="color-presets-row" id="edit-house-color-presets">
+            <div class="color-dot-preset" style="background:#E5354F;" onclick="app.selectEditHouseColor('#E5354F')"></div>
+            <div class="color-dot-preset" style="background:#2F72E0;" onclick="app.selectEditHouseColor('#2F72E0')"></div>
+            <div class="color-dot-preset" style="background:#EAAB1E;" onclick="app.selectEditHouseColor('#EAAB1E')"></div>
+            <div class="color-dot-preset" style="background:#28B577;" onclick="app.selectEditHouseColor('#28B577')"></div>
+            <div class="color-dot-preset" style="background:#9D65FF;" onclick="app.selectEditHouseColor('#9D65FF')"></div>
+            <div class="color-dot-preset" style="background:#06B6D4;" onclick="app.selectEditHouseColor('#06B6D4')"></div>
+            <div class="color-dot-preset" style="background:#F97316;" onclick="app.selectEditHouseColor('#F97316')"></div>
+            <div class="color-dot-preset" style="background:#EC4899;" onclick="app.selectEditHouseColor('#EC4899')"></div>
+          </div>
+          <input type="color" id="edit-custom-house-color" value="#E5354F" onchange="app.selectEditHouseColor(this.value)" style="margin-top:6px; cursor:pointer; width:100%; height:36px; border-radius:8px; border:none; background:transparent;">
+
+          <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; margin-top:8px; font-weight:600;" onclick="app.saveEditedHouse()">Save House Changes</button>
         </div>
       </div>
 
@@ -643,7 +722,10 @@
           <input type="text" id="edit-teacher-display" placeholder="Display Name (e.g. Mr. Smith)" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Password</label>
-          <input type="text" id="edit-teacher-password" placeholder="Password" class="input-field">
+          <div class="password-field-wrapper">
+            <input type="password" id="edit-teacher-password" placeholder="Password" class="input-field">
+            <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('edit-teacher-password', this)" title="Show Password">👁️</button>
+          </div>
 
           <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; margin-top:6px; font-weight:600;" onclick="app.saveEditedTeacher()">Save Changes</button>
         </div>
@@ -659,6 +741,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script src="app.js?v=5.0"></script>
+  <script src="app.js?v=6.0"></script>
 </body>
 </html>

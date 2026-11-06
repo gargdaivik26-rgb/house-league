@@ -813,6 +813,42 @@ html, body {
   transform: translateX(-2px);
 }
 
+/* Password & Admin Code Toggle Button */
+.password-field-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-field-wrapper .input-field {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.btn-toggle-pwd {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 6px 8px;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  z-index: 2;
+}
+
+.btn-toggle-pwd:hover {
+  transform: scale(1.2);
+  opacity: 1;
+}
+
 .badge-pill {
   padding: 2px 6px;
   border-radius: 4px;

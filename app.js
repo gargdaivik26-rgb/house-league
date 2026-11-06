@@ -72,11 +72,12 @@ class HouseCupApp {
 
   // --- Persistence with Clean Reset to No School ---
   loadStorage() {
-    const RESET_KEY = 'housecup_saas_reset_v5_clean_zero';
-    // User requested to reset data to NO school for now
+    const RESET_KEY = 'housecup_saas_reset_v6_zero_schools';
+    // User requested to reset data to zero schools for clean testing restart
     if (localStorage.getItem(RESET_KEY) !== 'done') {
       localStorage.removeItem('housecup_saas_schools');
       localStorage.removeItem('housecup_active_school');
+      localStorage.removeItem('housecup_saved_session');
       localStorage.setItem(RESET_KEY, 'done');
       return {};
     }
@@ -104,6 +105,9 @@ class HouseCupApp {
 
   normalizeSchool(sch) {
     if (!sch) return null;
+    if (!sch.resetCycle) sch.resetCycle = 'yearly';
+    if (!sch.motto) sch.motto = 'Honour, Excellence, Integrity';
+    if (!sch.term) sch.term = sch.resetCycle === 'yearly' ? 'Academic Year 2026-27' : 'Term 1 (2026-27)';
     if (!Array.isArray(sch.events)) sch.events = [];
     if (!Array.isArray(sch.students)) sch.students = [];
     if (!Array.isArray(sch.houses)) sch.houses = [];
@@ -311,8 +315,27 @@ class HouseCupApp {
   // DYNAMIC HOUSE BUILDER IN REGISTRATION (ZERO HARDCODING)
   // =========================================================================
 
+  setRegisterCycle(cycle) {
+    this.registerCycle = cycle;
+    const btnYearly = document.getElementById('btn-reg-cycle-yearly');
+    const btnTerm = document.getElementById('btn-reg-cycle-term');
+    const hint = document.getElementById('reg-cycle-hint');
+    if (btnYearly) btnYearly.classList.toggle('active', cycle === 'yearly');
+    if (btnTerm) btnTerm.classList.toggle('active', cycle === 'term');
+    if (hint) {
+      if (cycle === 'yearly') {
+        hint.textContent = 'Points accumulate across the full academic year and reset once at the end of the year (e.g. Witty).';
+      } else {
+        hint.textContent = 'Points conclude and reset at the end of each term (e.g. Poddar).';
+      }
+    }
+  }
+
   openRegisterSchoolModal() {
+    this.registerCycle = 'yearly';
+    this.setRegisterCycle('yearly');
     document.getElementById('reg-school-name').value = '';
+    document.getElementById('reg-school-motto').value = 'Honour, Excellence, Integrity';
     document.getElementById('reg-school-code').value = '';
     document.getElementById('reg-school-pin').value = '';
 
@@ -352,8 +375,10 @@ class HouseCupApp {
 
   submitSchoolRegistration() {
     const name = (document.getElementById('reg-school-name').value || '').trim();
+    const motto = (document.getElementById('reg-school-motto').value || '').trim() || 'Honour, Excellence, Integrity';
     const code = (document.getElementById('reg-school-code').value || '').trim().toUpperCase();
     const pin = (document.getElementById('reg-school-pin').value || '').trim();
+    const cycle = this.registerCycle || 'yearly';
 
     if (!name || !code) {
       alert('Please enter both School Name and School Code.');
@@ -404,9 +429,10 @@ class HouseCupApp {
       id: id,
       name: name,
       code: code,
-      motto: 'Honour, Excellence, Integrity',
+      motto: motto,
+      resetCycle: cycle,
       adminPin: pin, // User decided!
-      term: 'Term 1 (2026-27)',
+      term: cycle === 'yearly' ? 'Academic Year 2026-27' : 'Term 1 (2026-27)',
       houses: houses,
       criteria: {
         add: ['Homework Excellence', 'Class Participation', 'Good Behavior', 'Helping a Peer', 'Sports Achievement', 'Perfect Attendance', 'Other'],
@@ -441,6 +467,36 @@ class HouseCupApp {
     const sub = document.getElementById('login-school-sub');
     if (sub) sub.textContent = `${sch.name} • Points Championship`;
 
+    // Motto on Login screen
+    const loginMotto = document.getElementById('login-school-motto');
+    if (loginMotto) {
+      if (sch.motto) {
+        loginMotto.textContent = `“${sch.motto}”`;
+        loginMotto.style.display = 'block';
+      } else {
+        loginMotto.style.display = 'none';
+      }
+    }
+
+    // Home / Scoreboard Screen School Banner & Motto
+    const homeTitle = document.getElementById('home-school-display-name');
+    if (homeTitle) homeTitle.textContent = sch.name;
+
+    const homePeriod = document.getElementById('home-school-period-badge');
+    if (homePeriod) {
+      homePeriod.textContent = sch.term || (sch.resetCycle === 'yearly' ? 'Academic Year 2026-27' : 'Term 1');
+    }
+
+    const homeMotto = document.getElementById('home-school-display-motto');
+    if (homeMotto) {
+      if (sch.motto) {
+        homeMotto.textContent = `“${sch.motto}”`;
+        homeMotto.style.display = 'block';
+      } else {
+        homeMotto.style.display = 'none';
+      }
+    }
+
     const syncName = document.getElementById('sync-school-name');
     if (syncName) syncName.textContent = sch.name;
 
@@ -453,6 +509,20 @@ class HouseCupApp {
         const el = document.getElementById(slotId);
         if (el && sch.houses[i]) el.style.background = sch.houses[i].color;
       });
+    }
+  }
+
+  togglePasswordVisibility(inputId, btn) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    if (el.type === 'password') {
+      el.type = 'text';
+      if (btn) btn.textContent = '🙈';
+      if (btn) btn.title = 'Hide';
+    } else {
+      el.type = 'password';
+      if (btn) btn.textContent = '👁️';
+      if (btn) btn.title = 'Show';
     }
   }
 
@@ -964,6 +1034,7 @@ class HouseCupApp {
     if (!sch) return;
     document.getElementById('admin-input-school-name').value = sch.name;
     document.getElementById('admin-input-school-motto').value = sch.motto;
+    document.getElementById('admin-input-school-cycle').value = sch.resetCycle || 'yearly';
     document.getElementById('admin-input-school-code').value = sch.code;
     document.getElementById('admin-input-school-pin').value = sch.adminPin; // User can view and change their Admin Code!
   }
@@ -976,6 +1047,16 @@ class HouseCupApp {
     sch.motto = (document.getElementById('admin-input-school-motto').value || '').trim() || sch.motto;
     sch.code = (document.getElementById('admin-input-school-code').value || '').trim().toUpperCase() || sch.code;
     
+    const newCycle = document.getElementById('admin-input-school-cycle').value || 'yearly';
+    if (sch.resetCycle !== newCycle) {
+      sch.resetCycle = newCycle;
+      if (newCycle === 'yearly' && !sch.term.includes('Academic Year')) {
+        sch.term = 'Academic Year 2026-27';
+      } else if (newCycle === 'term' && !sch.term.includes('Term')) {
+        sch.term = 'Term 1 (2026-27)';
+      }
+    }
+
     // User saves their chosen Admin Code
     const pin = (document.getElementById('admin-input-school-pin').value || '').trim();
     if (!pin) {
@@ -986,7 +1067,8 @@ class HouseCupApp {
 
     this.saveStorage();
     this.updateSchoolUI();
-    this.showToast('School Profile & Admin Code updated!');
+    this.renderAdminTerm();
+    this.showToast('School Profile & Settings updated!');
   }
 
   // --- Admin Houses (Dynamic) ---
@@ -1003,8 +1085,9 @@ class HouseCupApp {
         <td style="font-size:16px;">${h.emblem || '🛡️'}</td>
         <td style="font-weight:600;">${h.name}</td>
         <td style="font-family:'Oswald',sans-serif; font-size:16px; font-weight:700;">${h.points}</td>
-        <td>
-          <span class="action-link" onclick="app.deleteHouse('${h.id}')">Delete</span>
+        <td style="text-align: right; white-space: nowrap;">
+          <span class="action-btn-edit" onclick="app.openEditHouseModal('${h.id}')" title="Edit house details">✏️</span>
+          <span class="action-link" onclick="app.deleteHouse('${h.id}')" title="Delete house">✕</span>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1020,7 +1103,7 @@ class HouseCupApp {
 
   selectHouseColor(hex) {
     this.newHouseSelectedColor = hex;
-    document.querySelectorAll('.color-dot-preset').forEach(dot => {
+    document.querySelectorAll('#color-presets .color-dot-preset').forEach(dot => {
       dot.classList.toggle('selected', dot.style.background.toLowerCase() === hex.toLowerCase());
     });
     document.getElementById('custom-house-color').value = hex;
@@ -1055,6 +1138,91 @@ class HouseCupApp {
     this.populateHouseFilters();
     this.closeModal('modal-add-house');
     this.showToast(`House ${name} created!`);
+  }
+
+  openEditHouseModal(id) {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+    const house = sch.houses.find(h => h.id === id);
+    if (!house) return;
+
+    document.getElementById('edit-house-orig-id').value = house.id;
+    document.getElementById('edit-house-name').value = house.name;
+    document.getElementById('edit-house-emblem').value = house.emblem || '🛡️';
+    this.selectEditHouseColor(house.color || '#E5354F');
+
+    this.openModal('modal-edit-house');
+  }
+
+  selectEditHouseColor(hex) {
+    this.editHouseSelectedColor = hex;
+    document.querySelectorAll('#edit-house-color-presets .color-dot-preset').forEach(dot => {
+      dot.classList.toggle('selected', dot.style.background.toLowerCase() === hex.toLowerCase());
+    });
+    const custom = document.getElementById('edit-custom-house-color');
+    if (custom) custom.value = hex;
+  }
+
+  saveEditedHouse() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    const origId = document.getElementById('edit-house-orig-id').value;
+    const newName = (document.getElementById('edit-house-name').value || '').trim();
+    const newEmblem = (document.getElementById('edit-house-emblem').value || '').trim() || '🛡️';
+    const newColor = this.editHouseSelectedColor || '#E5354F';
+
+    if (!newName) {
+      alert('House name cannot be empty.');
+      return;
+    }
+
+    const hIdx = sch.houses.findIndex(h => h.id === origId);
+    if (hIdx === -1) {
+      alert('House record not found.');
+      return;
+    }
+
+    const oldName = sch.houses[hIdx].name;
+
+    // Check duplicate name
+    if (newName.toLowerCase() !== oldName.toLowerCase()) {
+      if (sch.houses.some((h, i) => i !== hIdx && h.name.toLowerCase() === newName.toLowerCase())) {
+        alert(`A house named "${newName}" already exists.`);
+        return;
+      }
+    }
+
+    // Update house properties
+    sch.houses[hIdx].name = newName;
+    sch.houses[hIdx].emblem = newEmblem;
+    sch.houses[hIdx].color = newColor;
+
+    // If house name changed, update students and events
+    if (newName !== oldName) {
+      if (Array.isArray(sch.students)) {
+        sch.students.forEach(s => {
+          if (s.house && s.house.toLowerCase() === oldName.toLowerCase()) {
+            s.house = newName;
+          }
+        });
+      }
+      if (Array.isArray(sch.events)) {
+        sch.events.forEach(ev => {
+          if (ev.house && ev.house.toLowerCase() === oldName.toLowerCase()) {
+            ev.house = newName;
+          }
+        });
+      }
+    }
+
+    this.saveStorage();
+    this.renderAdminHouses();
+    this.renderScoreboard();
+    this.populateHouseFilters();
+    this.updateSchoolUI();
+    this.closeModal('modal-edit-house');
+    this.showToast(`Updated house "${newName}"`);
   }
 
   deleteHouse(id) {
@@ -1502,16 +1670,42 @@ class HouseCupApp {
     }
   }
 
-  // --- Admin Term & Reset ---
+  // --- Admin Term & Reset / Annual Reset ---
   renderAdminTerm() {
     const sch = this.getActiveSchool();
     if (!sch) return;
 
-    document.getElementById('admin-term-name-display').textContent = sch.term;
-    const histList = document.getElementById('admin-term-history-list');
+    const isYearly = (sch.resetCycle || 'yearly') === 'yearly';
 
+    const tabNav = document.getElementById('admin-tab-nav-reset');
+    if (tabNav) tabNav.textContent = isYearly ? '🏆 Annual Reset' : '🏆 Term & Reset';
+
+    const header = document.getElementById('admin-reset-cycle-header');
+    if (header) header.textContent = isYearly ? 'Current Academic Year:' : 'Current Term:';
+
+    const desc = document.getElementById('admin-reset-cycle-desc');
+    if (desc) {
+      desc.textContent = isYearly
+        ? 'Conclude the current academic year to record the champion into permanent history and safely reset all house points to 0 for the new school year.'
+        : 'Conclude the academic term to record the winner into permanent history and safely reset all house points to 0 for the new semester.';
+    }
+
+    const btn = document.getElementById('admin-reset-cycle-btn');
+    if (btn) {
+      btn.textContent = isYearly ? '🏆 Conclude Academic Year & Reset Scores' : '🏆 Conclude Term & Reset Scores';
+    }
+
+    const histTitle = document.getElementById('admin-history-title');
+    if (histTitle) {
+      histTitle.textContent = isYearly ? 'Annual Championship History & Past Champions' : 'Term History & Past Winners';
+    }
+
+    const termDisplay = document.getElementById('admin-term-name-display');
+    if (termDisplay) termDisplay.textContent = sch.term;
+
+    const histList = document.getElementById('admin-term-history-list');
     if (!sch.archivedTerms || sch.archivedTerms.length === 0) {
-      histList.innerHTML = '<div style="color:var(--text-sub);">No past terms archived yet.</div>';
+      histList.innerHTML = `<div style="color:var(--text-sub);">No past ${isYearly ? 'years' : 'terms'} archived yet.</div>`;
       return;
     }
 
@@ -1531,7 +1725,10 @@ class HouseCupApp {
 
   concludeTermAndReset() {
     const sch = this.getActiveSchool();
-    if (!confirm(`Are you sure you want to conclude ${sch.term}? This will archive the results and reset all house points to 0 for the new term.`)) return;
+    if (!sch) return;
+    const isYearly = (sch.resetCycle || 'yearly') === 'yearly';
+
+    if (!confirm(`Are you sure you want to conclude ${sch.term}? This will archive the results and reset all house points to 0 for the new ${isYearly ? 'academic year' : 'term'}.`)) return;
 
     const sorted = [...sch.houses].sort((a, b) => b.points - a.points);
     const winner = sorted[0];
@@ -1547,14 +1744,20 @@ class HouseCupApp {
 
     sch.houses = sch.houses.map(h => ({ ...h, points: 0 }));
     sch.events = [];
-    sch.term = `Term ${sch.archivedTerms.length + 1} (${new Date().getFullYear()})`;
+
+    if (isYearly) {
+      const curYear = new Date().getFullYear();
+      sch.term = `Academic Year ${curYear}-${String(curYear + 1).slice(-2)}`;
+    } else {
+      sch.term = `Term ${sch.archivedTerms.length + 1} (${new Date().getFullYear()})`;
+    }
 
     this.saveStorage();
     this.renderScoreboard();
     this.renderActivity();
     this.renderAdminTerm();
     this.updateSchoolUI();
-    this.showToast(`Term concluded! Winner: ${winner.name}`);
+    this.showToast(`${isYearly ? 'Academic Year' : 'Term'} concluded and points reset!`);
   }
 
   exportActivityCSV() {
