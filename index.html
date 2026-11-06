@@ -74,10 +74,13 @@
       <section id="screen-login" class="screen">
         <div style="padding: 24px 22px 36px; display: flex; flex-direction: column; gap: 20px; min-height: 100%; justify-content: center;">
           
-          <!-- School Switcher Pill -->
-          <div style="display: flex; justify-content: center;">
-            <div class="school-selector-pill" onclick="app.goToSchoolEntry()" title="Click to change school or enter code">
-              🏫 <span id="current-school-pill-text">School Name</span> ▾
+          <!-- Top Navigation: Back to School Code & School Badge -->
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <button type="button" class="back-nav-btn" onclick="app.goToSchoolEntry()" title="Back to School Code screen">
+              ← Back
+            </button>
+            <div class="school-selector-pill" style="cursor: default;" title="Current School">
+              🏫 <span id="current-school-pill-text">School Name</span>
             </div>
           </div>
 
@@ -100,19 +103,19 @@
           </div>
 
           <!-- Teacher Login Box -->
-          <div id="form-teacher" style="display: flex; flex-direction: column; gap: 12px;">
-            <input type="text" id="teacher-username" class="input-field" placeholder="Username" autocomplete="username">
-            <input type="password" id="teacher-password" class="input-field" placeholder="Password" autocomplete="current-password">
+          <form id="form-teacher" autocomplete="off" onsubmit="event.preventDefault(); app.submitTeacherLogin();" style="display: flex; flex-direction: column; gap: 12px;">
+            <input type="text" id="teacher-username" class="input-field" placeholder="Username" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <input type="password" id="teacher-password" class="input-field" placeholder="Password" autocomplete="new-password">
             <div id="login-error-teacher" class="error-text" style="display: none;"></div>
-            <div class="primary-btn" onclick="app.submitTeacherLogin()">Sign In</div>
-          </div>
+            <button type="submit" class="primary-btn" style="border: none;">Sign In</button>
+          </form>
 
           <!-- Student Login Box (Full name or partial name match, NO examples) -->
-          <div id="form-student" style="display: none; flex-direction: column; gap: 12px;">
-            <input type="text" id="student-name-input" class="input-field" placeholder="Enter your name" autocomplete="off">
+          <form id="form-student" autocomplete="off" onsubmit="event.preventDefault(); app.submitStudentLogin();" style="display: none; flex-direction: column; gap: 12px;">
+            <input type="text" id="student-name-input" class="input-field" placeholder="Enter your name" autocomplete="off" autocorrect="off" spellcheck="false">
             <div id="login-error-student" class="error-text" style="display: none;"></div>
-            <div class="primary-btn" onclick="app.submitStudentLogin()">View Scoreboard</div>
-          </div>
+            <button type="submit" class="primary-btn" style="border: none;">View Scoreboard</button>
+          </form>
 
           <!-- Footer: Sync Status & Admin Portal Link -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 0 4px;">
@@ -120,7 +123,7 @@
               <span id="sync-dot-login" class="sync-dot"></span>
               <span id="sync-text-login" style="color: rgba(245,244,240,0.5); font-size: 11.5px;">Cloud Sync Active</span>
             </span>
-            <span onclick="app.openAdminLoginModal()" style="color: rgba(245,244,240,0.5); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            <span id="login-admin-link" onclick="app.openAdminLoginModal()" style="color: rgba(245,244,240,0.5); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
               🔒 Admin Login
             </span>
           </div>
@@ -405,7 +408,7 @@
               <div style="font-size:13px; font-weight:700; margin-top:8px;">
                 Enrolled Students (<span id="admin-student-count">0</span>)
               </div>
-              <input type="text" id="admin-student-search-input" class="input-field" placeholder="🔍 Search student to delete (by name, grade, house)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
+              <input type="text" id="admin-student-search-input" class="input-field" placeholder="🔍 Search student to edit or delete (by name, grade, house)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
               <div style="max-height: 200px; overflow-y: auto;">
                 <table class="admin-table">
                   <thead>
@@ -413,7 +416,7 @@
                       <th>Name</th>
                       <th>Grade & Div</th>
                       <th>House</th>
-                      <th>Delete</th>
+                      <th style="text-align: right;">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="admin-students-tbody"></tbody>
@@ -438,14 +441,14 @@
               <div style="font-size:13px; font-weight:700; margin-top:8px;">
                 Staff Teachers (<span id="admin-teacher-count">0</span>)
               </div>
-              <input type="text" id="admin-teacher-search-input" class="input-field" placeholder="🔍 Search teacher to delete (by username or display name)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
+              <input type="text" id="admin-teacher-search-input" class="input-field" placeholder="🔍 Search teacher to edit or delete (by username or display name)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
               <table class="admin-table">
                 <thead>
                   <tr>
                     <th>Username</th>
                     <th>Display Name</th>
                     <th>Password</th>
-                    <th>Delete</th>
+                    <th style="text-align: right;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="admin-teachers-tbody"></tbody>
@@ -513,7 +516,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
                 <label style="font-size: 12px; font-weight: 700; color: #F5F4F0;">House System (Dynamic)</label>
-                <div style="font-size: 11px; color: var(--text-dim);">Add as many houses as your school uses (minimum 2):</div>
+                <div style="font-size: 11px; color: var(--text-dim);">Add houses with custom colors & emblems (min 2):</div>
               </div>
               <button class="primary-btn" style="padding: 5px 10px; font-size: 11.5px; background: rgba(255,255,255,0.08); color: var(--text-main);" onclick="app.addHouseRowToRegisterForm()">
                 + Add House
@@ -588,6 +591,64 @@
         </div>
       </div>
 
+      <!-- ===================================================================
+           MODAL: EDIT STUDENT (Name, Grade, Division, House)
+           =================================================================== -->
+      <div id="modal-edit-student" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-edit-student')">
+        <div class="modal-content" style="max-width: 440px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">✏️ Edit Student</div>
+            <div class="icon-btn" onclick="app.closeModal('modal-edit-student')">✕</div>
+          </div>
+          
+          <input type="hidden" id="edit-student-orig-name">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Student Full Name</label>
+          <input type="text" id="edit-student-name" placeholder="Student Name" class="input-field">
+
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Grade</label>
+              <input type="text" id="edit-student-grade" placeholder="e.g. 5" class="input-field">
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Division</label>
+              <input type="text" id="edit-student-div" placeholder="e.g. A" class="input-field">
+            </div>
+          </div>
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Assigned House</label>
+          <select id="edit-student-house" class="input-field" style="background:#1B1E27; color:#F5F4F0; cursor:pointer;"></select>
+
+          <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; margin-top:6px; font-weight:600;" onclick="app.saveEditedStudent()">Save Changes</button>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: EDIT TEACHER (Username, Display Name, Password)
+           =================================================================== -->
+      <div id="modal-edit-teacher" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-edit-teacher')">
+        <div class="modal-content" style="max-width: 440px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">✏️ Edit Teacher</div>
+            <div class="icon-btn" onclick="app.closeModal('modal-edit-teacher')">✕</div>
+          </div>
+          
+          <input type="hidden" id="edit-teacher-orig-user">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Username (Login ID)</label>
+          <input type="text" id="edit-teacher-username" placeholder="Username" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Display Name</label>
+          <input type="text" id="edit-teacher-display" placeholder="Display Name (e.g. Mr. Smith)" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Password</label>
+          <input type="text" id="edit-teacher-password" placeholder="Password" class="input-field">
+
+          <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; margin-top:6px; font-weight:600;" onclick="app.saveEditedTeacher()">Save Changes</button>
+        </div>
+      </div>
+
       <!-- Toast Notification -->
       <div id="toast" class="toast-msg"></div>
 
@@ -598,6 +659,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script src="app.js?v=4.1"></script>
+  <script src="app.js?v=5.0"></script>
 </body>
 </html>

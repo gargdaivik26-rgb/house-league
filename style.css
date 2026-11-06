@@ -765,12 +765,52 @@ html, body {
 .action-link {
   color: var(--action-deduct);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
+  display: inline-block;
+  padding: 2px 4px;
+  transition: transform 0.15s ease;
 }
 
 .action-link:hover {
   text-decoration: underline;
+  transform: scale(1.15);
+}
+
+.action-btn-edit {
+  color: var(--accent-gold);
+  cursor: pointer;
+  font-size: 13px;
+  margin-right: 10px;
+  display: inline-block;
+  padding: 2px 4px;
+  transition: transform 0.15s ease;
+}
+
+.action-btn-edit:hover {
+  transform: scale(1.2);
+}
+
+.back-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.back-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateX(-2px);
 }
 
 .badge-pill {

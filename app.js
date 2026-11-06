@@ -249,12 +249,27 @@ class HouseCupApp {
     this.switchSchool(matched.id);
   }
 
+  clearLoginInputs() {
+    const tu = document.getElementById('teacher-username');
+    const tp = document.getElementById('teacher-password');
+    const sn = document.getElementById('student-name-input');
+    const errT = document.getElementById('login-error-teacher');
+    const errS = document.getElementById('login-error-student');
+    if (tu) tu.value = '';
+    if (tp) tp.value = '';
+    if (sn) sn.value = '';
+    if (errT) errT.style.display = 'none';
+    if (errS) errS.style.display = 'none';
+  }
+
   goToSchoolEntry() {
+    this.clearLoginInputs();
     this.renderEntryScreen();
     this.showScreen('screen-entry');
   }
 
   async switchSchool(schId) {
+    this.clearLoginInputs();
     if (!this.schools[schId]) {
       // Fetch school definition from cloud if not yet loaded locally
       if (this.cloudEnabled && this.cloudDb) {
@@ -287,6 +302,8 @@ class HouseCupApp {
     this.populateHouseFilters();
     this.listenToSchoolCloud(schId);
     this.showScreen('screen-login');
+    this.clearLoginInputs();
+    setTimeout(() => this.clearLoginInputs(), 60);
     this.showToast(`Switched to ${this.schools[schId].name}`);
   }
 
@@ -299,13 +316,13 @@ class HouseCupApp {
     document.getElementById('reg-school-code').value = '';
     document.getElementById('reg-school-pin').value = '';
 
-    // Initialize with 4 blank dynamic house rows
+    // Initialize with 4 dynamic house rows with colors and emblems
     const list = document.getElementById('reg-dynamic-houses-list');
     list.innerHTML = '';
-    this.addHouseRowToRegisterForm('Ruby', '#E5354F');
-    this.addHouseRowToRegisterForm('Sapphire', '#2F72E0');
-    this.addHouseRowToRegisterForm('Topaz', '#EAAB1E');
-    this.addHouseRowToRegisterForm('Emerald', '#28B577');
+    this.addHouseRowToRegisterForm('Ruby', '#E5354F', '🦁');
+    this.addHouseRowToRegisterForm('Sapphire', '#2F72E0', '🦅');
+    this.addHouseRowToRegisterForm('Topaz', '#EAAB1E', '🦡');
+    this.addHouseRowToRegisterForm('Emerald', '#28B577', '🐍');
 
     document.getElementById('modal-register-school').classList.add('open');
   }
@@ -314,7 +331,7 @@ class HouseCupApp {
     document.getElementById('modal-register-school').classList.remove('open');
   }
 
-  addHouseRowToRegisterForm(initialName = '', initialColor = null) {
+  addHouseRowToRegisterForm(initialName = '', initialColor = null, initialEmblem = '🛡️') {
     const list = document.getElementById('reg-dynamic-houses-list');
     if (!list) return;
 
@@ -323,8 +340,10 @@ class HouseCupApp {
 
     const row = document.createElement('div');
     row.className = 'house-setup-row';
+    row.style.cssText = 'display: flex; align-items: center; gap: 8px;';
     row.innerHTML = `
       <input type="color" class="house-color-input" value="${color}" title="Choose House Color">
+      <input type="text" class="input-field house-emblem-input" placeholder="Emblem" value="${initialEmblem}" maxlength="3" title="Emblem Emoji/Symbol (e.g. 🦁, 🦅, 🔥)" style="padding: 10px 8px; font-size: 15px; width: 44px; text-align: center;">
       <input type="text" class="input-field house-name-input" placeholder="House Name (e.g. Phoenix, Lions, Ruby)" value="${initialName}" style="padding: 10px 12px; font-size: 13px; flex: 1;">
       <div style="cursor: pointer; color: #F0405B; font-size: 16px; padding: 4px 6px;" title="Remove this house" onclick="this.parentElement.remove()">✕</div>
     `;
@@ -359,6 +378,7 @@ class HouseCupApp {
 
     rows.forEach(r => {
       const c = r.querySelector('.house-color-input').value;
+      const emb = (r.querySelector('.house-emblem-input')?.value || '🛡️').trim() || '🛡️';
       const n = (r.querySelector('.house-name-input').value || '').trim();
       if (n) {
         const hId = n.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -367,7 +387,7 @@ class HouseCupApp {
             id: hId,
             name: n,
             color: c,
-            emblem: '🛡️',
+            emblem: emb,
             points: 0
           });
         }
@@ -445,6 +465,11 @@ class HouseCupApp {
       t.scrollTop = 0;
     }
 
+    if (id === 'screen-login') {
+      this.clearLoginInputs();
+      this.setRole('teacher');
+    }
+
     const frame = document.getElementById('app-frame');
     if (frame) {
       frame.classList.toggle('expanded-admin', id === 'screen-admin');
@@ -484,6 +509,10 @@ class HouseCupApp {
     document.getElementById('btn-role-student').classList.toggle('active', r === 'student');
     document.getElementById('form-teacher').style.display = r === 'teacher' ? 'flex' : 'none';
     document.getElementById('form-student').style.display = r === 'student' ? 'flex' : 'none';
+    const adminLink = document.getElementById('login-admin-link');
+    if (adminLink) {
+      adminLink.style.display = r === 'teacher' ? 'flex' : 'none';
+    }
     this.hideLoginErrors();
   }
 
@@ -580,6 +609,7 @@ class HouseCupApp {
     this.activeSchoolId = null;
     localStorage.removeItem('housecup_saved_session');
     localStorage.removeItem('housecup_active_school');
+    this.clearLoginInputs();
     this.goToSchoolEntry();
     this.showToast('Signed out');
   }
@@ -1121,12 +1151,15 @@ class HouseCupApp {
       } else {
         filteredStudents.forEach(s => {
           const tr = document.createElement('tr');
-          const safeName = s.name.replace(/'/g, "\\'");
+          const safeName = s.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
           tr.innerHTML = `
             <td>${s.name}</td>
             <td>Gr ${s.grade}${s.division}</td>
             <td><span class="badge-pill" style="background:rgba(255,255,255,0.08);">${s.house}</span></td>
-            <td><span class="action-link" onclick="app.deleteStudent('${safeName}')" title="Delete this student">✕</span></td>
+            <td style="text-align: right; white-space: nowrap;">
+              <span class="action-btn-edit" onclick="app.openEditStudentModal('${safeName}')" title="Edit student">✏️</span>
+              <span class="action-link" onclick="app.deleteStudent('${safeName}')" title="Delete this student">✕</span>
+            </td>
           `;
           stbody.appendChild(tr);
         });
@@ -1153,7 +1186,7 @@ class HouseCupApp {
       } else {
         filteredTeachers.forEach(t => {
           const tr = document.createElement('tr');
-          const safeUser = t.username.replace(/'/g, "\\'");
+          const safeUser = t.username.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
           
           // Strictly ensure admin is always displayed as "School Admin" and never "Headmaster"
           let disp = t.displayName;
@@ -1171,7 +1204,10 @@ class HouseCupApp {
             <td><code>${t.username}</code></td>
             <td style="font-weight: 500; color: #F5F4F0;">${disp}</td>
             <td><code>•••••</code></td>
-            <td><span class="action-link" onclick="app.deleteTeacher('${safeUser}')" title="Delete this teacher">✕</span></td>
+            <td style="text-align: right; white-space: nowrap;">
+              <span class="action-btn-edit" onclick="app.openEditTeacherModal('${safeUser}')" title="Edit teacher">✏️</span>
+              <span class="action-link" onclick="app.deleteTeacher('${safeUser}')" title="Delete this teacher">✕</span>
+            </td>
           `;
           ttbody.appendChild(tr);
         });
@@ -1205,6 +1241,166 @@ class HouseCupApp {
     this.saveStorage();
     this.renderAdminRoster();
     this.showToast(`Deleted teacher "${u}"`);
+  }
+
+  openEditStudentModal(name) {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+    const student = sch.students.find(s => s.name === name);
+    if (!student) return;
+
+    document.getElementById('edit-student-orig-name').value = student.name;
+    document.getElementById('edit-student-name').value = student.name;
+    document.getElementById('edit-student-grade').value = student.grade || '';
+    document.getElementById('edit-student-div').value = student.division || '';
+
+    // Populate House dropdown
+    const houseSelect = document.getElementById('edit-student-house');
+    if (houseSelect) {
+      houseSelect.innerHTML = sch.houses.map(h => 
+        `<option value="${h.name}" ${h.name.toLowerCase() === (student.house || '').toLowerCase() ? 'selected' : ''}>${h.emblem || '🛡️'} ${h.name}</option>`
+      ).join('');
+    }
+
+    this.openModal('modal-edit-student');
+  }
+
+  saveEditedStudent() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    const origName = (document.getElementById('edit-student-orig-name').value || '').trim();
+    const newName = (document.getElementById('edit-student-name').value || '').trim();
+    const newGrade = (document.getElementById('edit-student-grade').value || '').trim();
+    const newDiv = (document.getElementById('edit-student-div').value || '').trim().toUpperCase();
+    const newHouse = (document.getElementById('edit-student-house').value || '').trim();
+
+    if (!newName) {
+      alert('Student name cannot be empty.');
+      return;
+    }
+    if (!newHouse) {
+      alert('Please select a house for the student.');
+      return;
+    }
+
+    const sIdx = sch.students.findIndex(s => s.name === origName);
+    if (sIdx === -1) {
+      alert('Student record not found.');
+      return;
+    }
+
+    // Check duplicate name if name was changed
+    if (newName.toLowerCase() !== origName.toLowerCase()) {
+      if (sch.students.some(s => s.name.toLowerCase() === newName.toLowerCase())) {
+        alert(`A student named "${newName}" already exists in this school.`);
+        return;
+      }
+    }
+
+    // Update student data
+    sch.students[sIdx].name = newName;
+    sch.students[sIdx].grade = newGrade;
+    sch.students[sIdx].division = newDiv;
+    sch.students[sIdx].house = newHouse;
+
+    // Keep events consistent if name changed
+    if (newName !== origName && Array.isArray(sch.events)) {
+      sch.events.forEach(ev => {
+        if (ev.studentName === origName) {
+          ev.studentName = newName;
+          ev.house = newHouse;
+        }
+      });
+    }
+
+    // Re-sort students according to standard sorting
+    sch.students.sort((a, b) => {
+      const gA = parseInt(a.grade) || 0;
+      const gB = parseInt(b.grade) || 0;
+      if (gA !== gB) return gA - gB;
+      const divComp = (a.division || '').localeCompare(b.division || '');
+      if (divComp !== 0) return divComp;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.populateHouseFilters();
+    this.closeModal('modal-edit-student');
+    this.showToast(`Updated student "${newName}"`);
+  }
+
+  openEditTeacherModal(username) {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+    const teacher = sch.teachers.find(t => t.username === username);
+    if (!teacher) return;
+
+    let disp = teacher.displayName;
+    if (teacher.username.toLowerCase() === 'admin' || disp === 'Headmaster') {
+      disp = 'School Admin';
+    } else if (!disp) {
+      disp = teacher.username;
+    }
+
+    document.getElementById('edit-teacher-orig-user').value = teacher.username;
+    document.getElementById('edit-teacher-username').value = teacher.username;
+    document.getElementById('edit-teacher-display').value = disp;
+    document.getElementById('edit-teacher-password').value = teacher.password;
+
+    this.openModal('modal-edit-teacher');
+  }
+
+  saveEditedTeacher() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    const origUser = (document.getElementById('edit-teacher-orig-user').value || '').trim();
+    const newUser = (document.getElementById('edit-teacher-username').value || '').trim();
+    let newDisplay = (document.getElementById('edit-teacher-display').value || '').trim();
+    const newPass = (document.getElementById('edit-teacher-password').value || '').trim();
+
+    if (!newUser || !newPass) {
+      alert('Username and password cannot be empty.');
+      return;
+    }
+
+    const tIdx = sch.teachers.findIndex(t => t.username === origUser);
+    if (tIdx === -1) {
+      alert('Teacher record not found.');
+      return;
+    }
+
+    // Check duplicate username if username changed
+    if (newUser.toLowerCase() !== origUser.toLowerCase()) {
+      if (sch.teachers.some(t => t.username.toLowerCase() === newUser.toLowerCase())) {
+        alert(`A teacher with username "${newUser}" already exists.`);
+        return;
+      }
+    }
+
+    if (newUser.toLowerCase() === 'admin' && (newDisplay.toLowerCase() === 'headmaster' || !newDisplay)) {
+      newDisplay = 'School Admin';
+    }
+
+    sch.teachers[tIdx].username = newUser;
+    sch.teachers[tIdx].displayName = newDisplay || newUser;
+    sch.teachers[tIdx].password = newPass;
+
+    // Update active session if the edited teacher is currently logged in
+    if (this.session && this.session.role === 'teacher') {
+      if (this.session.name === origUser || this.session.name === sch.teachers[tIdx].displayName) {
+        this.session.name = sch.teachers[tIdx].displayName;
+        const sNameEl = document.getElementById('home-session-name');
+        if (sNameEl) sNameEl.textContent = this.session.name;
+      }
+    }
+
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.closeModal('modal-edit-teacher');
+    this.showToast(`Updated teacher "${newUser}"`);
   }
 
   importStudentsFromExcel() {
