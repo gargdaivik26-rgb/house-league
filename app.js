@@ -107,16 +107,42 @@ class HouseCupApp {
     }
   }
 
+  normalizeSchool(sch) {
+    if (!sch) return null;
+    if (!Array.isArray(sch.events)) sch.events = [];
+    if (!Array.isArray(sch.students)) sch.students = [];
+    if (!Array.isArray(sch.houses)) sch.houses = [];
+    if (!Array.isArray(sch.teachers)) {
+      sch.teachers = [{ username: 'admin', password: 'password1', displayName: 'School Admin' }];
+    }
+    if (!Array.isArray(sch.archivedTerms)) sch.archivedTerms = [];
+    if (!sch.criteria) {
+      sch.criteria = {
+        add: ['Homework Excellence', 'Class Participation', 'Good Behavior', 'Helping a Peer', 'Sports Achievement', 'Perfect Attendance', 'Other'],
+        deduct: ['Late to Class', 'Incomplete Homework', 'Disruptive Behavior', 'Uniform Violation', 'Rule Violation', 'Other']
+      };
+    }
+    if (!Array.isArray(sch.criteria.add)) {
+      sch.criteria.add = ['Homework Excellence', 'Class Participation', 'Good Behavior', 'Helping a Peer', 'Sports Achievement', 'Perfect Attendance', 'Other'];
+    }
+    if (!Array.isArray(sch.criteria.deduct)) {
+      sch.criteria.deduct = ['Late to Class', 'Incomplete Homework', 'Disruptive Behavior', 'Uniform Violation', 'Rule Violation', 'Other'];
+    }
+    return sch;
+  }
+
   getActiveSchool() {
+    let sch = null;
     if (!this.activeSchoolId || !this.schools[this.activeSchoolId]) {
       const keys = Object.keys(this.schools);
       if (keys.length > 0) {
         this.activeSchoolId = keys[0];
-        return this.schools[this.activeSchoolId];
+        sch = this.schools[this.activeSchoolId];
       }
-      return null;
+    } else {
+      sch = this.schools[this.activeSchoolId];
     }
-    return this.schools[this.activeSchoolId];
+    return this.normalizeSchool(sch);
   }
 
   getHouse(id) {
@@ -147,42 +173,10 @@ class HouseCupApp {
   // =========================================================================
 
   renderEntryScreen() {
-    const drop = document.getElementById('entry-schools-dropdown');
-    const box = document.getElementById('entry-existing-schools-box');
     const err = document.getElementById('entry-code-error');
     if (err) err.style.display = 'none';
-
-    if (!drop || !box) return;
-
-    // Combine local schools and cloud-discovered schools
-    const schoolMap = {};
-    Object.keys(this.schools).forEach(k => {
-      const s = this.schools[k];
-      if (s) schoolMap[s.id || k] = { id: s.id || k, name: s.name, code: s.code };
-    });
-    if (this.cloudDirectory) {
-      Object.keys(this.cloudDirectory).forEach(k => {
-        const c = this.cloudDirectory[k];
-        if (c && !schoolMap[c.id || k]) {
-          schoolMap[c.id || k] = c;
-        }
-      });
-    }
-
-    const keys = Object.keys(schoolMap);
-    if (keys.length > 0) {
-      drop.innerHTML = '<option value="">-- Choose from saved schools --</option>';
-      keys.forEach(k => {
-        const sch = schoolMap[k];
-        const opt = document.createElement('option');
-        opt.value = sch.id;
-        opt.textContent = `${sch.name} (${sch.code})`;
-        drop.appendChild(opt);
-      });
-      box.style.display = 'flex';
-    } else {
-      box.style.display = 'none';
-    }
+    const input = document.getElementById('entry-school-code');
+    if (input) input.value = '';
   }
 
   async submitSchoolCode() {
@@ -197,36 +191,33 @@ class HouseCupApp {
     }
 
     // 1. Match code locally first
-    let matched = Object.values(this.schools).find(s => s.code.toUpperCase() === val || s.id.toUpperCase() === val);
+    let matched = Object.values(this.schools).find(s => s && (s.code.toUpperCase() === val || s.id.toUpperCase() === val));
 
     // 2. If not found locally, query Cloud Database in real time!
     if (!matched && this.cloudEnabled && this.cloudDb) {
-      err.textContent = 'Searching cloud database across schools...';
+      err.textContent = 'Searching cloud database...';
       err.style.display = 'block';
       try {
         const cleanId = val.toLowerCase().replace(/[^a-z0-9]/g, '');
         const snap = await this.cloudDb.ref('schools/' + cleanId).once('value');
         const data = snap.val();
         if (data) {
+          this.normalizeSchool(data);
           this.schools[cleanId] = data;
           this.saveStorage();
-          this.renderEntryScreen();
           matched = data;
         } else {
-          // Check school directory index
-          const dirSnap = await this.cloudDb.ref('school_directory').once('value');
-          const dir = dirSnap.val();
-          if (dir) {
-            const foundId = Object.keys(dir).find(k => (dir[k].code || '').toUpperCase() === val);
-            if (foundId) {
-              const fullSnap = await this.cloudDb.ref('schools/' + foundId).once('value');
-              const fullData = fullSnap.val();
-              if (fullData) {
-                this.schools[foundId] = fullData;
-                this.saveStorage();
-                this.renderEntryScreen();
-                matched = fullData;
-              }
+          // Query all schools in cloud
+          const allSnap = await this.cloudDb.ref('schools').once('value');
+          const all = allSnap.val();
+          if (all) {
+            const foundKey = Object.keys(all).find(k => all[k] && ((all[k].code || '').toUpperCase() === val || k.toUpperCase() === val));
+            if (foundKey) {
+              const fullData = all[foundKey];
+              this.normalizeSchool(fullData);
+              this.schools[foundKey] = fullData;
+              this.saveStorage();
+              matched = fullData;
             }
           }
         }
@@ -259,6 +250,7 @@ class HouseCupApp {
           const snap = await this.cloudDb.ref('schools/' + schId).once('value');
           const data = snap.val();
           if (data) {
+            this.normalizeSchool(data);
             this.schools[schId] = data;
           } else {
             alert('School data could not be found.');
@@ -272,6 +264,8 @@ class HouseCupApp {
         return;
       }
     }
+
+    this.normalizeSchool(this.schools[schId]);
 
     this.activeSchoolId = schId;
     this.saveStorage();
@@ -613,14 +607,16 @@ class HouseCupApp {
     }
 
     // Sort houses descending by points
-    const sorted = [...sch.houses].sort((a, b) => b.points - a.points);
+    const houses = Array.isArray(sch.houses) ? sch.houses : [];
+    const events = Array.isArray(sch.events) ? sch.events : [];
+    const sorted = [...houses].sort((a, b) => (b.points || 0) - (a.points || 0));
 
     list.innerHTML = '';
     sorted.forEach((h, idx) => {
       const row = document.createElement('div');
       row.className = 'scoreboard-row';
 
-      const recentEvs = sch.events.filter(e => e.house.toLowerCase() === h.id.toLowerCase());
+      const recentEvs = events.filter(e => e && e.house && e.house.toLowerCase() === h.id.toLowerCase());
       const lastDelta = recentEvs.length > 0 ? recentEvs[0].delta : null;
 
       let deltaHtml = '<span class="live-chip" style="color: rgba(245,244,240,0.3);">—</span>';
@@ -1406,9 +1402,6 @@ class HouseCupApp {
       this.cloudEnabled = true;
       this.updateCloudStatusUI(true);
 
-      // Listen to directory of registered schools
-      this.listenToSchoolDirectory();
-
       // Auto-sync any existing local schools to the cloud database
       Object.keys(this.schools).forEach(k => {
         this.syncSchoolToCloud(k);
@@ -1421,14 +1414,6 @@ class HouseCupApp {
       console.warn('Firebase init error:', e);
       this.updateCloudStatusUI(false, e.message);
     }
-  }
-
-  listenToSchoolDirectory() {
-    if (!this.cloudEnabled || !this.cloudDb) return;
-    this.cloudDb.ref('school_directory').on('value', (snap) => {
-      this.cloudDirectory = snap.val() || {};
-      this.renderEntryScreen();
-    });
   }
 
   updateCloudStatusUI(connected, errorMsg = '') {
@@ -1484,6 +1469,7 @@ class HouseCupApp {
     this.cloudListener = ref.on('value', (snapshot) => {
       const val = snapshot.val();
       if (!val) return;
+      this.normalizeSchool(val);
 
       const currentLocal = JSON.stringify(this.schools[schId] || {});
       const incoming = JSON.stringify(val);
@@ -1512,12 +1498,8 @@ class HouseCupApp {
     if (!sch) return;
 
     try {
+      this.normalizeSchool(sch);
       this.cloudDb.ref('schools/' + schId).set(sch);
-      this.cloudDb.ref('school_directory/' + schId).set({
-        id: sch.id,
-        name: sch.name,
-        code: sch.code
-      });
     } catch (e) {
       console.warn('Cloud write failed:', e);
     }
@@ -1599,3 +1581,4 @@ class HouseCupApp {
 
 // Global initialization
 const app = new HouseCupApp();
+window.app = app;

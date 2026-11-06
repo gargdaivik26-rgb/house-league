@@ -52,14 +52,6 @@
 
             <button class="primary-btn" onclick="app.submitSchoolCode()">Enter School</button>
 
-            <!-- Dropdown of already registered schools (if any exist) -->
-            <div id="entry-existing-schools-box" style="display: none; flex-direction: column; gap: 6px; margin-top: 4px;">
-              <div style="font-size: 11px; color: var(--text-sub); text-transform: uppercase;">Or select saved school:</div>
-              <select id="entry-schools-dropdown" class="input-field" style="padding: 10px; font-size: 13px;" onchange="if(this.value) app.switchSchool(this.value)">
-                <!-- Dynamic options -->
-              </select>
-            </div>
-
             <!-- Divider -->
             <div style="display: flex; align-items: center; gap: 10px; margin: 4px 0;">
               <div style="flex: 1; height: 1px; background: var(--border-light);"></div>
@@ -645,6 +637,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>
