@@ -26,12 +26,7 @@ const DEFAULT_PALETTE = ['#E5354F', '#2F72E0', '#EAAB1E', '#28B577', '#9D65FF', 
 class HouseCupApp {
   constructor() {
     this.schools = this.loadStorage();
-    this.activeSchoolId = localStorage.getItem('housecup_active_school') || null;
-
-    if (this.activeSchoolId && !this.schools[this.activeSchoolId]) {
-      this.activeSchoolId = Object.keys(this.schools)[0] || null;
-    }
-
+    this.activeSchoolId = null;
     this.role = 'teacher';
     this.session = null;
 
@@ -132,17 +127,10 @@ class HouseCupApp {
   }
 
   getActiveSchool() {
-    let sch = null;
     if (!this.activeSchoolId || !this.schools[this.activeSchoolId]) {
-      const keys = Object.keys(this.schools);
-      if (keys.length > 0) {
-        this.activeSchoolId = keys[0];
-        sch = this.schools[this.activeSchoolId];
-      }
-    } else {
-      sch = this.schools[this.activeSchoolId];
+      return null;
     }
-    return this.normalizeSchool(sch);
+    return this.normalizeSchool(this.schools[this.activeSchoolId]);
   }
 
   getHouse(id) {
@@ -151,21 +139,45 @@ class HouseCupApp {
     return sch.houses.find(h => h.id.toLowerCase() === id.toLowerCase()) || { name: id, color: '#999', points: 0 };
   }
 
-  init() {
+  async init() {
     this.renderEntryScreen();
     this.initCloudSync();
 
-    // If a school was already active, open its login screen
-    if (this.activeSchoolId && this.schools[this.activeSchoolId]) {
-      this.updateSchoolUI();
-      this.renderScoreboard();
-      this.renderActivity();
-      this.populateHouseFilters();
-      this.listenToSchoolCloud(this.activeSchoolId);
-      this.showScreen('screen-login');
-    } else {
-      this.showScreen('screen-entry');
+    // Check if the user has an active logged-in session on this device
+    const savedSessionRaw = localStorage.getItem('housecup_saved_session');
+    if (savedSessionRaw) {
+      try {
+        const saved = JSON.parse(savedSessionRaw);
+        if (saved && saved.session && saved.schoolId) {
+          const schId = saved.schoolId;
+          let sch = this.schools[schId];
+          if (!sch && this.cloudEnabled && this.cloudDb) {
+            const snap = await this.cloudDb.ref('schools/' + schId).once('value');
+            sch = snap.val();
+            if (sch) {
+              this.normalizeSchool(sch);
+              this.schools[schId] = sch;
+            }
+          }
+
+          if (sch) {
+            this.activeSchoolId = schId;
+            this.session = saved.session;
+            this.updateSchoolUI();
+            this.listenToSchoolCloud(schId);
+            this.onLoginSuccess(true); // silent restore straight into scoreboard!
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Session restore error:', e);
+      }
     }
+
+    // New visitor or logged out user: ALWAYS start on Enter School Code Screen!
+    this.session = null;
+    this.activeSchoolId = null;
+    this.showScreen('screen-entry');
   }
 
   // =========================================================================
@@ -538,9 +550,18 @@ class HouseCupApp {
     this.onLoginSuccess();
   }
 
-  onLoginSuccess() {
+  onLoginSuccess(silent = false) {
     const isTeacher = this.session.role === 'teacher';
     const isAdmin = this.session.role === 'admin';
+
+    // Persist login session on this device so closing app DOES NOT log them out!
+    try {
+      localStorage.setItem('housecup_saved_session', JSON.stringify({
+        session: this.session,
+        schoolId: this.activeSchoolId
+      }));
+      localStorage.setItem('housecup_active_school', this.activeSchoolId);
+    } catch (e) {}
 
     document.getElementById('home-session-name').textContent = this.session.name;
     document.getElementById('teacher-fab').style.display = (isTeacher || isAdmin) ? 'flex' : 'none';
@@ -549,12 +570,18 @@ class HouseCupApp {
     this.renderScoreboard();
     this.renderActivity();
     this.showScreen('screen-home');
-    this.showToast(`Welcome, ${this.session.name}`);
+    if (!silent) {
+      this.showToast(`Welcome, ${this.session.name}`);
+    }
   }
 
   logout() {
     this.session = null;
-    this.showScreen('screen-login');
+    this.activeSchoolId = null;
+    localStorage.removeItem('housecup_saved_session');
+    localStorage.removeItem('housecup_active_school');
+    this.goToSchoolEntry();
+    this.showToast('Signed out');
   }
 
   // --- Admin Login (User-Decided Code) ---

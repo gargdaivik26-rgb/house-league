@@ -152,6 +152,21 @@ html, body {
   opacity: 0.8;
 }
 
+.admin-close-btn {
+  background: rgba(0, 0, 0, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #F5F4F0 !important;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.admin-close-btn:hover {
+  background: #000 !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  color: #FFFFFF !important;
+}
+
 /* Crest Logo */
 .crest-logo {
   width: 64px;
