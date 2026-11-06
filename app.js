@@ -1433,6 +1433,72 @@ class HouseCupApp {
     this.showToast(`Deleted teacher "${u}"`);
   }
 
+  clearAllStudents() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+    const count = (sch.students || []).length;
+    if (count === 0) {
+      alert('There are no students to clear.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to permanently delete ALL ${count} students from this school? This action cannot be undone.`)) {
+      return;
+    }
+    sch.students = [];
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.populateHouseFilters();
+    this.showToast(`Successfully cleared all ${count} students from roster!`);
+  }
+
+  clearAllTeachers() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+    const teachers = sch.teachers || [];
+    const nonAdminTeachers = teachers.filter(t => t.username.toLowerCase() !== 'admin');
+    if (nonAdminTeachers.length === 0 && teachers.length <= 1) {
+      alert('There are no additional staff teachers to clear (the primary admin account is preserved).');
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete all staff teachers? The primary School Admin account (admin) will be preserved for management.`)) {
+      return;
+    }
+    const adminTeacher = teachers.find(t => t.username.toLowerCase() === 'admin') || {
+      username: 'admin',
+      password: 'password1',
+      displayName: 'School Admin'
+    };
+    sch.teachers = [adminTeacher];
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.showToast(`Cleared all staff teachers! Primary admin account preserved.`);
+  }
+
+  clearAllRosterData() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+    const sCount = (sch.students || []).length;
+    const tCount = (sch.teachers || []).filter(t => t.username.toLowerCase() !== 'admin').length;
+    if (sCount === 0 && tCount === 0) {
+      alert('Both student roster and teacher staff are already empty.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to clear ALL roster data (${sCount} students and ${tCount} staff teachers)? Primary admin account will be retained.`)) {
+      return;
+    }
+    sch.students = [];
+    const adminTeacher = (sch.teachers || []).find(t => t.username.toLowerCase() === 'admin') || {
+      username: 'admin',
+      password: 'password1',
+      displayName: 'School Admin'
+    };
+    sch.teachers = [adminTeacher];
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.populateHouseFilters();
+    this.showToast(`Cleared all student and teacher data!`);
+  }
+
   openEditStudentModal(name) {
     const sch = this.getActiveSchool();
     if (!sch) return;
