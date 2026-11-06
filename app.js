@@ -21,6 +21,19 @@ function sortStudentsGradeThenDiv(list) {
   });
 }
 
+// Advances academic year consecutively: 2026-27 -> 2027-28 -> 2028-29 -> 2029-30, etc.
+function advanceAcademicYear(yearStr) {
+  const match = (yearStr || '').match(/(\d{4})-(\d{2,4})/);
+  if (match) {
+    const startYear = parseInt(match[1], 10);
+    const nextStart = startYear + 1;
+    const nextEnd = String(nextStart + 1).slice(-2);
+    return `${nextStart}-${nextEnd}`;
+  }
+  const curYear = new Date().getFullYear();
+  return `${curYear + 1}-${String(curYear + 2).slice(-2)}`;
+}
+
 const DEFAULT_PALETTE = ['#E5354F', '#2F72E0', '#EAAB1E', '#28B577', '#9D65FF', '#06B6D4', '#F97316', '#EC4899'];
 
 class HouseCupApp {
@@ -72,7 +85,7 @@ class HouseCupApp {
 
   // --- Persistence with Clean Reset to No School ---
   loadStorage() {
-    const RESET_KEY = 'housecup_saas_reset_v6_zero_schools';
+    const RESET_KEY = 'housecup_saas_reset_v7_zero_schools';
     // User requested to reset data to zero schools for clean testing restart
     if (localStorage.getItem(RESET_KEY) !== 'done') {
       localStorage.removeItem('housecup_saas_schools');
@@ -107,7 +120,11 @@ class HouseCupApp {
     if (!sch) return null;
     if (!sch.resetCycle) sch.resetCycle = 'yearly';
     if (!sch.motto) sch.motto = 'Honour, Excellence, Integrity';
-    if (!sch.term) sch.term = sch.resetCycle === 'yearly' ? 'Academic Year 2026-27' : 'Term 1 (2026-27)';
+    sch.academicYear = sch.academicYear || (sch.term?.match(/(\d{4}-\d{2,4})/)?.[1] || '2026-27');
+    sch.currentTermIndex = typeof sch.currentTermIndex === 'number' ? sch.currentTermIndex : ((sch.term || '').includes('Term 2') ? 2 : 1);
+    if (!sch.term) {
+      sch.term = sch.resetCycle === 'yearly' ? `Academic Year ${sch.academicYear}` : `Term ${sch.currentTermIndex} (${sch.academicYear})`;
+    }
     if (!Array.isArray(sch.events)) sch.events = [];
     if (!Array.isArray(sch.students)) sch.students = [];
     if (!Array.isArray(sch.houses)) sch.houses = [];
@@ -324,9 +341,9 @@ class HouseCupApp {
     if (btnTerm) btnTerm.classList.toggle('active', cycle === 'term');
     if (hint) {
       if (cycle === 'yearly') {
-        hint.textContent = 'Points accumulate across the full academic year and reset once at the end of the year (e.g. Witty).';
+        hint.textContent = 'Points accumulate across the full academic year and reset once annually at year-end.';
       } else {
-        hint.textContent = 'Points conclude and reset at the end of each term (e.g. Poddar).';
+        hint.textContent = 'Points conclude and reset across 2 terms per academic year (Term 1 and Term 2).';
       }
     }
   }
@@ -366,8 +383,8 @@ class HouseCupApp {
     row.style.cssText = 'display: flex; align-items: center; gap: 8px;';
     row.innerHTML = `
       <input type="color" class="house-color-input" value="${color}" title="Choose House Color">
-      <input type="text" class="input-field house-emblem-input" placeholder="Emblem" value="${initialEmblem}" maxlength="3" title="Emblem Emoji/Symbol (e.g. 🦁, 🦅, 🔥)" style="padding: 10px 8px; font-size: 15px; width: 44px; text-align: center;">
-      <input type="text" class="input-field house-name-input" placeholder="House Name (e.g. Phoenix, Lions, Ruby)" value="${initialName}" style="padding: 10px 12px; font-size: 13px; flex: 1;">
+      <input type="text" class="input-field house-emblem-input" placeholder="Emblem" value="${initialEmblem}" maxlength="3" title="Emblem Emoji/Symbol" style="padding: 10px 8px; font-size: 15px; width: 44px; text-align: center;">
+      <input type="text" class="input-field house-name-input" placeholder="House Name" value="${initialName}" style="padding: 10px 12px; font-size: 13px; flex: 1;">
       <div style="cursor: pointer; color: #F0405B; font-size: 16px; padding: 4px 6px;" title="Remove this house" onclick="this.parentElement.remove()">✕</div>
     `;
     list.appendChild(row);
@@ -379,6 +396,7 @@ class HouseCupApp {
     const code = (document.getElementById('reg-school-code').value || '').trim().toUpperCase();
     const pin = (document.getElementById('reg-school-pin').value || '').trim();
     const cycle = this.registerCycle || 'yearly';
+    const initialYear = '2026-27';
 
     if (!name || !code) {
       alert('Please enter both School Name and School Code.');
@@ -432,7 +450,9 @@ class HouseCupApp {
       motto: motto,
       resetCycle: cycle,
       adminPin: pin, // User decided!
-      term: cycle === 'yearly' ? 'Academic Year 2026-27' : 'Term 1 (2026-27)',
+      academicYear: initialYear,
+      currentTermIndex: 1,
+      term: cycle === 'yearly' ? `Academic Year ${initialYear}` : `Term 1 (${initialYear})`,
       houses: houses,
       criteria: {
         add: ['Homework Excellence', 'Class Participation', 'Good Behavior', 'Helping a Peer', 'Sports Achievement', 'Perfect Attendance', 'Other'],
@@ -1050,10 +1070,12 @@ class HouseCupApp {
     const newCycle = document.getElementById('admin-input-school-cycle').value || 'yearly';
     if (sch.resetCycle !== newCycle) {
       sch.resetCycle = newCycle;
-      if (newCycle === 'yearly' && !sch.term.includes('Academic Year')) {
-        sch.term = 'Academic Year 2026-27';
-      } else if (newCycle === 'term' && !sch.term.includes('Term')) {
-        sch.term = 'Term 1 (2026-27)';
+      const year = sch.academicYear || '2026-27';
+      if (newCycle === 'yearly') {
+        sch.term = `Academic Year ${year}`;
+      } else {
+        sch.currentTermIndex = sch.currentTermIndex || 1;
+        sch.term = `Term ${sch.currentTermIndex} (${year})`;
       }
     }
 
@@ -1571,106 +1593,292 @@ class HouseCupApp {
     this.showToast(`Updated teacher "${newUser}"`);
   }
 
-  importStudentsFromExcel() {
-    const raw = (document.getElementById('excel-students-input').value || '').trim();
-    if (!raw) {
-      alert('Please paste spreadsheet data from Excel or Google Sheets into the box.');
+  // --- Student & Teacher Templates Download ---
+  downloadStudentTemplate() {
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(
+      "Name,Grade,Division,House\n" +
+      "Aarav Sharma,9,A,Ruby\n" +
+      "Diya Patel,10,B,Sapphire\n" +
+      "Vivaan Gupta,9,A,Topaz\n" +
+      "Ananya Iyer,10,B,Emerald\n"
+    );
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "student_roster_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  downloadTeacherTemplate() {
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(
+      "Username,Password,Display Name\n" +
+      "sharma,teacher123,Mrs. Sharma\n" +
+      "verma,teacher456,Mr. Verma\n"
+    );
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "teacher_roster_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  // --- Excel File Upload & Sheet Parser (SheetJS .xlsx, .xls and .csv) ---
+  handleExcelFileUpload(event, type) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const reader = new FileReader();
+
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      reader.onload = (e) => {
+        try {
+          if (typeof XLSX === 'undefined') {
+            alert('Excel parser library (SheetJS) is loading. Please wait a moment and try again.');
+            return;
+          }
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+          this.processExcelRows(rows, type);
+        } catch (err) {
+          console.error(err);
+          alert('Error parsing Excel spreadsheet: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // CSV or plain text
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+          const rows = lines.map(line => {
+            return line.includes('\t')
+              ? line.split('\t').map(c => c.trim().replace(/^"|"$/g, ''))
+              : line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+          });
+          this.processExcelRows(rows, type);
+        } catch (err) {
+          console.error(err);
+          alert('Error reading CSV file: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // --- Universal Row Processor for Students and Teachers ---
+  processExcelRows(rows, type) {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      alert('The spreadsheet contains no data rows.');
       return;
     }
 
-    const sch = this.getActiveSchool();
-    const lines = raw.split(/\r?\n/);
-    let count = 0;
+    if (type === 'students') {
+      let count = 0;
+      rows.forEach(parts => {
+        if (!parts || parts.length < 4) return;
+        const col0 = String(parts[0] || '').trim();
+        const col1 = String(parts[1] || '').trim();
+        const col2 = String(parts[2] || '').trim();
+        const col3 = String(parts[3] || '').trim();
 
-    lines.forEach(line => {
-      const row = line.trim();
-      if (!row) return;
+        if (col0.toLowerCase() === 'name') return; // Skip header
+        if (!col0) return;
 
-      const parts = row.includes('\t')
-        ? row.split('\t').map(x => x.trim())
-        : row.split(',').map(x => x.trim());
-
-      if (parts[0].toLowerCase() === 'name') return;
-
-      if (parts.length >= 4) {
-        const name = parts[0];
-        const grade = parts[1];
-        const division = parts[2];
-        const houseName = parts[3];
-
-        const matchedHouse = sch.houses.find(h => h.name.toLowerCase() === houseName.toLowerCase() || h.id.toLowerCase() === houseName.toLowerCase());
-        const houseId = matchedHouse ? matchedHouse.id : houseName.toLowerCase();
+        const matchedHouse = sch.houses.find(h =>
+          h.name.toLowerCase() === col3.toLowerCase() ||
+          h.id.toLowerCase() === col3.toLowerCase()
+        );
+        const houseId = matchedHouse ? matchedHouse.id : (sch.houses[0]?.id || col3.toLowerCase());
 
         sch.students.push({
-          name: name,
-          grade: grade,
-          division: division,
+          name: col0,
+          grade: col1,
+          division: col2,
           house: houseId
         });
         count++;
-      }
-    });
+      });
 
-    if (count > 0) {
-      // Re-sort strictly Grade-wise (numeric, 9 < 10) then Division-wise (A < B < C)
-      sch.students = sortStudentsGradeThenDiv(sch.students);
-      this.saveStorage();
-      document.getElementById('excel-students-input').value = '';
-      this.renderAdminRoster();
-      this.populateHouseFilters();
-      this.showToast(`Imported ${count} students from Excel!`);
-    } else {
-      alert('Could not parse rows. Please ensure columns are: Name [Tab] Grade [Tab] Division [Tab] House');
+      if (count > 0) {
+        sch.students = sortStudentsGradeThenDiv(sch.students);
+        this.saveStorage();
+        this.renderAdminRoster();
+        this.populateHouseFilters();
+        this.showToast(`Imported ${count} students from spreadsheet!`);
+      } else {
+        alert('Could not parse student rows. Please ensure columns are: Name | Grade | Division | House');
+      }
+    } else if (type === 'teachers') {
+      let count = 0;
+      rows.forEach(parts => {
+        if (!parts || parts.length < 3) return;
+        const col0 = String(parts[0] || '').trim();
+        const col1 = String(parts[1] || '').trim();
+        const col2 = String(parts[2] || '').trim();
+
+        if (col0.toLowerCase() === 'username') return; // Skip header
+        if (!col0) return;
+
+        let u = col0.toLowerCase();
+        let disp = col2;
+        if (u === 'admin' || disp.toLowerCase() === 'headmaster') {
+          disp = 'School Admin';
+        }
+
+        const existingIdx = sch.teachers.findIndex(t => t.username.toLowerCase() === u);
+        if (existingIdx >= 0) {
+          sch.teachers[existingIdx] = { username: u, password: col1, displayName: disp };
+        } else {
+          sch.teachers.push({ username: u, password: col1, displayName: disp });
+        }
+        count++;
+      });
+
+      if (count > 0) {
+        this.saveStorage();
+        this.renderAdminRoster();
+        this.showToast(`Imported ${count} teachers from spreadsheet!`);
+      } else {
+        alert('Could not parse teacher rows. Please ensure columns are: Username | Password | Display Name');
+      }
     }
+  }
+
+  // --- Clipboard Paste Handlers ---
+  importStudentsFromExcel() {
+    const raw = (document.getElementById('excel-students-input').value || '').trim();
+    if (!raw) {
+      alert('Please paste spreadsheet data into the box or use the Upload Sheet button.');
+      return;
+    }
+    const lines = raw.split(/\r?\n/).filter(l => l.trim().length > 0);
+    const rows = lines.map(line => {
+      return line.includes('\t')
+        ? line.split('\t').map(c => c.trim().replace(/^"|"$/g, ''))
+        : line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    });
+    this.processExcelRows(rows, 'students');
+    document.getElementById('excel-students-input').value = '';
   }
 
   importTeachersFromExcel() {
     const raw = (document.getElementById('excel-teachers-input').value || '').trim();
     if (!raw) {
-      alert('Please paste teacher data from Excel.');
+      alert('Please paste teacher data into the box or use the Upload Sheet button.');
+      return;
+    }
+    const lines = raw.split(/\r?\n/).filter(l => l.trim().length > 0);
+    const rows = lines.map(line => {
+      return line.includes('\t')
+        ? line.split('\t').map(c => c.trim().replace(/^"|"$/g, ''))
+        : line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    });
+    this.processExcelRows(rows, 'teachers');
+    document.getElementById('excel-teachers-input').value = '';
+  }
+
+  // --- Add Single Student / Teacher Modals ---
+  openAddSingleStudentModal() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    document.getElementById('new-student-name').value = '';
+    document.getElementById('new-student-grade').value = '';
+    document.getElementById('new-student-div').value = '';
+
+    const sel = document.getElementById('new-student-house');
+    if (sel) {
+      sel.innerHTML = sch.houses.map(h => `<option value="${h.id}">${h.emblem || '🛡️'} ${h.name}</option>`).join('');
+    }
+    this.openModal('modal-add-student');
+  }
+
+  saveSingleStudent() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    const name = (document.getElementById('new-student-name').value || '').trim();
+    const grade = (document.getElementById('new-student-grade').value || '').trim();
+    const div = (document.getElementById('new-student-div').value || '').trim().toUpperCase();
+    const house = document.getElementById('new-student-house').value;
+
+    if (!name) {
+      alert('Please enter student name.');
       return;
     }
 
-    const sch = this.getActiveSchool();
-    const lines = raw.split(/\r?\n/);
-    let count = 0;
-
-    lines.forEach(line => {
-      const row = line.trim();
-      if (!row) return;
-
-      const parts = row.includes('\t')
-        ? row.split('\t').map(x => x.trim())
-        : row.split(',').map(x => x.trim());
-
-      if (parts[0].toLowerCase() === 'username') return;
-
-      if (parts.length >= 3) {
-        let u = parts[0].toLowerCase();
-        let disp = parts[2];
-        if (u === 'admin' || disp.toLowerCase() === 'headmaster') {
-          disp = 'School Admin';
-        }
-        sch.teachers.push({
-          username: u,
-          password: parts[1],
-          displayName: disp
-        });
-        count++;
-      }
+    sch.students.push({
+      name: name,
+      grade: grade,
+      division: div,
+      house: house
     });
 
-    if (count > 0) {
-      this.saveStorage();
-      document.getElementById('excel-teachers-input').value = '';
-      this.renderAdminRoster();
-      this.showToast(`Imported ${count} teachers from Excel!`);
-    } else {
-      alert('Could not parse rows. Ensure columns are: Username [Tab] Password [Tab] Display Name');
-    }
+    sch.students = sortStudentsGradeThenDiv(sch.students);
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.populateHouseFilters();
+    this.closeModal('modal-add-student');
+    this.showToast(`Added student "${name}" to roster!`);
   }
 
-  // --- Admin Term & Reset / Annual Reset ---
+  openAddSingleTeacherModal() {
+    document.getElementById('new-teacher-user').value = '';
+    document.getElementById('new-teacher-disp').value = '';
+    document.getElementById('new-teacher-pass').value = '';
+    this.openModal('modal-add-teacher');
+  }
+
+  saveSingleTeacher() {
+    const sch = this.getActiveSchool();
+    if (!sch) return;
+
+    const user = (document.getElementById('new-teacher-user').value || '').trim().toLowerCase();
+    let disp = (document.getElementById('new-teacher-disp').value || '').trim();
+    const pass = (document.getElementById('new-teacher-pass').value || '').trim();
+
+    if (!user || !pass) {
+      alert('Please enter both Username and Password.');
+      return;
+    }
+
+    if (user === 'admin' || disp.toLowerCase() === 'headmaster') {
+      disp = 'School Admin';
+    }
+
+    const existingIdx = sch.teachers.findIndex(t => t.username.toLowerCase() === user);
+    if (existingIdx >= 0) {
+      alert(`Teacher username "${user}" already exists. Please choose a different username.`);
+      return;
+    }
+
+    sch.teachers.push({
+      username: user,
+      displayName: disp || user,
+      password: pass
+    });
+
+    this.saveStorage();
+    this.renderAdminRoster();
+    this.closeModal('modal-add-teacher');
+    this.showToast(`Added teacher "${user}" to staff!`);
+  }
+
+  // --- Admin Term & Reset / Annual Reset (Strict 2-Term Progression & Consecutive Years) ---
   renderAdminTerm() {
     const sch = this.getActiveSchool();
     if (!sch) return;
@@ -1681,23 +1889,36 @@ class HouseCupApp {
     if (tabNav) tabNav.textContent = isYearly ? '🏆 Annual Reset' : '🏆 Term & Reset';
 
     const header = document.getElementById('admin-reset-cycle-header');
-    if (header) header.textContent = isYearly ? 'Current Academic Year:' : 'Current Term:';
+    if (header) header.textContent = isYearly ? 'Current Academic Year:' : 'Current Period:';
 
     const desc = document.getElementById('admin-reset-cycle-desc');
     if (desc) {
-      desc.textContent = isYearly
-        ? 'Conclude the current academic year to record the champion into permanent history and safely reset all house points to 0 for the new school year.'
-        : 'Conclude the academic term to record the winner into permanent history and safely reset all house points to 0 for the new semester.';
+      if (isYearly) {
+        desc.textContent = `Points accumulate across the full academic year (${sch.academicYear || '2026-27'}). Concluding archives the champion, resets all house points to 0, and advances to the next consecutive academic year.`;
+      } else {
+        const curTerm = sch.currentTermIndex || 1;
+        if (curTerm === 1) {
+          desc.textContent = `Strict 2-Term cycle. Concluding Term 1 archives results, resets points to 0, and moves to Term 2 of the current academic year (${sch.academicYear || '2026-27'}).`;
+        } else {
+          desc.textContent = `Strict 2-Term cycle. Concluding Term 2 concludes the full academic year (${sch.academicYear || '2026-27'}), resets points to 0, advances to the next consecutive academic year, and begins Term 1.`;
+        }
+      }
     }
 
     const btn = document.getElementById('admin-reset-cycle-btn');
     if (btn) {
-      btn.textContent = isYearly ? '🏆 Conclude Academic Year & Reset Scores' : '🏆 Conclude Term & Reset Scores';
+      if (isYearly) {
+        btn.textContent = '🏆 Conclude Academic Year & Advance Year';
+      } else {
+        btn.textContent = (sch.currentTermIndex || 1) === 1
+          ? '🏆 Conclude Term 1 & Proceed to Term 2'
+          : '🏆 Conclude Term 2 & Advance to Next Academic Year';
+      }
     }
 
     const histTitle = document.getElementById('admin-history-title');
     if (histTitle) {
-      histTitle.textContent = isYearly ? 'Annual Championship History & Past Champions' : 'Term History & Past Winners';
+      histTitle.textContent = isYearly ? 'Annual Championship History & Past Champions' : 'Term History & Past Champions';
     }
 
     const termDisplay = document.getElementById('admin-term-name-display');
@@ -1728,10 +1949,10 @@ class HouseCupApp {
     if (!sch) return;
     const isYearly = (sch.resetCycle || 'yearly') === 'yearly';
 
-    if (!confirm(`Are you sure you want to conclude ${sch.term}? This will archive the results and reset all house points to 0 for the new ${isYearly ? 'academic year' : 'term'}.`)) return;
+    if (!confirm(`Are you sure you want to conclude ${sch.term}? This will archive the results and reset all house points to 0.`)) return;
 
     const sorted = [...sch.houses].sort((a, b) => b.points - a.points);
-    const winner = sorted[0];
+    const winner = sorted[0] || { name: 'None', points: 0 };
 
     if (!sch.archivedTerms) sch.archivedTerms = [];
     sch.archivedTerms.unshift({
@@ -1745,11 +1966,25 @@ class HouseCupApp {
     sch.houses = sch.houses.map(h => ({ ...h, points: 0 }));
     sch.events = [];
 
+    let toastMsg = '';
     if (isYearly) {
-      const curYear = new Date().getFullYear();
-      sch.term = `Academic Year ${curYear}-${String(curYear + 1).slice(-2)}`;
+      const prevYear = sch.academicYear || '2026-27';
+      sch.academicYear = advanceAcademicYear(prevYear);
+      sch.term = `Academic Year ${sch.academicYear}`;
+      toastMsg = `Academic Year ${prevYear} concluded! Advanced to ${sch.academicYear} and points reset to 0.`;
     } else {
-      sch.term = `Term ${sch.archivedTerms.length + 1} (${new Date().getFullYear()})`;
+      const curIndex = sch.currentTermIndex || 1;
+      if (curIndex === 1) {
+        sch.currentTermIndex = 2;
+        sch.term = `Term 2 (${sch.academicYear || '2026-27'})`;
+        toastMsg = `Term 1 concluded! Now entering Term 2 (${sch.academicYear}) and points reset to 0.`;
+      } else {
+        const prevYear = sch.academicYear || '2026-27';
+        sch.academicYear = advanceAcademicYear(prevYear);
+        sch.currentTermIndex = 1;
+        sch.term = `Term 1 (${sch.academicYear})`;
+        toastMsg = `Term 2 concluded! Full academic year completed. Advanced to ${sch.academicYear} (Term 1) and points reset to 0.`;
+      }
     }
 
     this.saveStorage();
@@ -1757,7 +1992,7 @@ class HouseCupApp {
     this.renderActivity();
     this.renderAdminTerm();
     this.updateSchoolUI();
-    this.showToast(`${isYearly ? 'Academic Year' : 'Term'} concluded and points reset!`);
+    this.showToast(toastMsg);
   }
 
   exportActivityCSV() {
@@ -1787,7 +2022,7 @@ class HouseCupApp {
 
   // =========================================================================
   // MULTI-TENANT CLOUD REALTIME SYNC (Firebase Realtime Database)
-  // Enables live instant updates between devices & locations (e.g. Malad East & West)
+  // Enables live instant updates between devices & locations
   // Each school is isolated under /schools/<schoolId>
   // =========================================================================
 
@@ -1860,7 +2095,7 @@ class HouseCupApp {
         modalTitle.style.color = '#28B577';
       }
       if (modalSub) {
-        modalSub.textContent = 'Real-time multi-device sync live across Malad East & West';
+        modalSub.textContent = 'Real-time multi-device cloud sync active';
         modalSub.style.color = '#28B577';
       }
     } else {

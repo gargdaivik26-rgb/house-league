@@ -47,7 +47,7 @@
             </div>
 
             <!-- School Code Input -->
-            <input type="text" id="entry-school-code" class="input-field" placeholder="Enter School Code (e.g. GWH-01)" style="text-transform: uppercase;">
+            <input type="text" id="entry-school-code" class="input-field" placeholder="Enter School Code" style="text-transform: uppercase;">
             <div id="entry-code-error" class="error-text" style="display: none;"></div>
 
             <button class="primary-btn" onclick="app.submitSchoolCode()">Enter School</button>
@@ -160,13 +160,10 @@
           </div>
         </div>
 
-        <!-- School Banner with Motto & Academic Period -->
-        <div id="home-school-banner" style="padding: 10px 20px 6px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px;">
-          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;">
-            <div id="home-school-display-name" style="font-family: 'Oswald', sans-serif; font-size: 19px; font-weight: 700; color: #F5F4F0; letter-spacing: 0.5px;"></div>
-            <span id="home-school-period-badge" class="badge-pill" style="background: rgba(244,183,64,0.15); color: var(--accent-gold); font-size: 11px;"></span>
-          </div>
-          <div id="home-school-display-motto" style="font-size: 12.5px; font-style: italic; color: var(--accent-gold); opacity: 0.9; margin-top: 1px; display: none;"></div>
+        <!-- Academic Period & School Motto Banner (School name removed per request) -->
+        <div id="home-school-banner" style="padding: 10px 20px 6px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;">
+          <span id="home-school-period-badge" class="badge-pill" style="background: rgba(244,183,64,0.15); color: var(--accent-gold); font-size: 12.5px; font-weight: 700; padding: 4px 14px; border: 1px solid rgba(244,183,64,0.3); border-radius: 999px; letter-spacing: 0.5px;"></span>
+          <div id="home-school-display-motto" style="font-size: 12.5px; font-style: italic; color: rgba(245,244,240,0.7); margin-top: 1px; display: none;"></div>
         </div>
 
         <!-- Scoreboard Table -->
@@ -342,7 +339,7 @@
               <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Points Reset Cycle</label>
               <select id="admin-input-school-cycle" class="input-field" style="background:#1B1E27; color:#F5F4F0; cursor:pointer;">
                 <option value="yearly">📅 Yearly / Annual (End of Academic Year)</option>
-                <option value="term">🗓️ Term-Wise (Term 1, Term 2, Term 3)</option>
+                <option value="term">🗓️ Term-Wise (2 Terms per Year)</option>
               </select>
 
               <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">School Code</label>
@@ -412,26 +409,60 @@
           <!-- TAB 4: ROSTER & PASTE EXCEL (ADMIN-ONLY) -->
           <div class="admin-panel" id="admin-panel-roster">
             
-            <!-- Paste Student Excel Card -->
+            <!-- Student Roster Management Card -->
             <div class="admin-card">
               <div class="admin-card-header">
-                <div class="admin-card-title">📥 Paste Student Data from Excel / Sheets</div>
+                <div class="admin-card-title">👥 Student Roster Management</div>
                 <div class="badge-pill" style="background:rgba(40,181,119,0.15); color:#28B577;">Admin Only</div>
               </div>
-              <div style="font-size:12px; color:var(--text-dim); line-height:1.4;">
-                Select columns in <strong>Excel</strong> or <strong>Google Sheets</strong>, copy (Ctrl+C), and paste (Ctrl+V) below:<br>
-                <code style="color:var(--accent-gold);">Name [Tab] Grade [Tab] Division [Tab] House</code>
-              </div>
-              <textarea id="excel-students-input" class="excel-paste-box" placeholder="Example from Excel:&#10;Rahul Mehta&#9;9&#9;A&#9;Ruby&#10;Priya Patel&#9;10&#9;B&#9;Emerald&#10;Daivik Garg&#9;10&#9;A&#9;Ruby"></textarea>
-              <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; padding:12px;" onclick="app.importStudentsFromExcel()">
-                Import Students from Excel
-              </button>
 
-              <div style="font-size:13px; font-weight:700; margin-top:8px;">
+              <!-- Format Banner & Action Controls -->
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                  <div style="font-size: 12px; font-weight: 700; color: var(--accent-gold);">
+                    📋 Expected Roster Format:
+                  </div>
+                  <button type="button" class="primary-btn" style="padding: 5px 12px; font-size: 11.5px; background: rgba(244,183,64,0.15); color: var(--accent-gold); border: 1px solid rgba(244,183,64,0.3);" onclick="app.downloadStudentTemplate()">
+                    📥 Download Excel/CSV Template
+                  </button>
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-dim); line-height: 1.4;">
+                  Columns: <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Name</code> [Col A] &nbsp;|&nbsp; 
+                  <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Grade</code> [Col B] &nbsp;|&nbsp; 
+                  <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Division</code> [Col C] &nbsp;|&nbsp; 
+                  <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">House</code> [Col D]
+                </div>
+              </div>
+
+              <!-- Upload File Option & Manual Single Addition -->
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                <input type="file" id="excel-file-students" accept=".xlsx, .xls, .csv" style="display: none;" onchange="app.handleExcelFileUpload(event, 'students')">
+                <button type="button" class="primary-btn" style="flex: 1; min-width: 200px; padding: 11px; font-size: 13px; background: #2F72E0; color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="document.getElementById('excel-file-students').click()">
+                  📁 Upload Excel / CSV Sheet (.xlsx, .csv)
+                </button>
+                <button type="button" class="primary-btn" style="padding: 11px 16px; font-size: 13px; background: rgba(255,255,255,0.08); color: var(--text-main);" onclick="app.openAddSingleStudentModal()">
+                  ➕ Add Single Student
+                </button>
+              </div>
+
+              <!-- Or Paste from Clipboard Option -->
+              <details style="margin-top: 4px; font-size: 12px; color: var(--text-dim);">
+                <summary style="cursor: pointer; padding: 4px 0; color: rgba(245,244,240,0.6); user-select: none;">
+                  Or paste directly from clipboard (Click to expand) ▾
+                </summary>
+                <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 8px;">
+                  <textarea id="excel-students-input" class="excel-paste-box" placeholder="Paste tab-separated or comma-separated rows:&#10;Rahul Mehta&#9;9&#9;A&#9;Ruby&#10;Priya Patel&#9;10&#9;B&#9;Emerald"></textarea>
+                  <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; padding:10px; font-size:12.5px;" onclick="app.importStudentsFromExcel()">
+                    Import Pasted Rows
+                  </button>
+                </div>
+              </details>
+
+              <div style="font-size:13px; font-weight:700; margin-top:10px;">
                 Enrolled Students (<span id="admin-student-count">0</span>)
               </div>
               <input type="text" id="admin-student-search-input" class="input-field" placeholder="🔍 Search student to edit or delete (by name, grade, house)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
-              <div style="max-height: 200px; overflow-y: auto;">
+              <div style="max-height: 220px; overflow-y: auto;">
                 <table class="admin-table">
                   <thead>
                     <tr>
@@ -446,21 +477,55 @@
               </div>
             </div>
 
-            <!-- Paste Teacher Excel Card -->
+            <!-- Teacher Staff Management Card -->
             <div class="admin-card">
               <div class="admin-card-header">
-                <div class="admin-card-title">📥 Paste Teacher Data from Excel</div>
+                <div class="admin-card-title">📥 Staff Teachers Management</div>
                 <div class="badge-pill" style="background:rgba(40,181,119,0.15); color:#28B577;">Admin Only</div>
               </div>
-              <div style="font-size:12px; color:var(--text-dim); line-height:1.4;">
-                Format: <code style="color:var(--accent-gold);">Username [Tab] Password [Tab] Display Name</code>
-              </div>
-              <textarea id="excel-teachers-input" class="excel-paste-box" placeholder="Example from Excel:&#10;siddharth&#9;pass1&#9;Mr. Siddharth&#10;yogesh&#9;pass2&#9;Mr. Yogesh"></textarea>
-              <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; padding:12px;" onclick="app.importTeachersFromExcel()">
-                Import Teachers from Excel
-              </button>
 
-              <div style="font-size:13px; font-weight:700; margin-top:8px;">
+              <!-- Format Banner & Action Controls -->
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                  <div style="font-size: 12px; font-weight: 700; color: var(--accent-gold);">
+                    📋 Expected Format:
+                  </div>
+                  <button type="button" class="primary-btn" style="padding: 5px 12px; font-size: 11.5px; background: rgba(244,183,64,0.15); color: var(--accent-gold); border: 1px solid rgba(244,183,64,0.3);" onclick="app.downloadTeacherTemplate()">
+                    📥 Download Template
+                  </button>
+                </div>
+                <div style="font-size: 11.5px; color: var(--text-dim); line-height: 1.4;">
+                  Columns: <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Username</code> [Col A] &nbsp;|&nbsp; 
+                  <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Password</code> [Col B] &nbsp;|&nbsp; 
+                  <code style="color: #F5F4F0; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">Display Name</code> [Col C]
+                </div>
+              </div>
+
+              <!-- Upload File Option & Manual Single Addition -->
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                <input type="file" id="excel-file-teachers" accept=".xlsx, .xls, .csv" style="display: none;" onchange="app.handleExcelFileUpload(event, 'teachers')">
+                <button type="button" class="primary-btn" style="flex: 1; min-width: 200px; padding: 11px; font-size: 13px; background: #2F72E0; color: #fff; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="document.getElementById('excel-file-teachers').click()">
+                  📁 Upload Excel / CSV Sheet (.xlsx, .csv)
+                </button>
+                <button type="button" class="primary-btn" style="padding: 11px 16px; font-size: 13px; background: rgba(255,255,255,0.08); color: var(--text-main);" onclick="app.openAddSingleTeacherModal()">
+                  ➕ Add Single Teacher
+                </button>
+              </div>
+
+              <!-- Or Paste from Clipboard Option -->
+              <details style="margin-top: 4px; font-size: 12px; color: var(--text-dim);">
+                <summary style="cursor: pointer; padding: 4px 0; color: rgba(245,244,240,0.6); user-select: none;">
+                  Or paste directly from clipboard (Click to expand) ▾
+                </summary>
+                <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 8px;">
+                  <textarea id="excel-teachers-input" class="excel-paste-box" placeholder="Paste tab-separated or comma-separated rows:&#10;siddharth&#9;pass1&#9;Mr. Siddharth&#10;yogesh&#9;pass2&#9;Mr. Yogesh"></textarea>
+                  <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; padding:10px; font-size:12.5px;" onclick="app.importTeachersFromExcel()">
+                    Import Pasted Rows
+                  </button>
+                </div>
+              </details>
+
+              <div style="font-size:13px; font-weight:700; margin-top:10px;">
                 Staff Teachers (<span id="admin-teacher-count">0</span>)
               </div>
               <input type="text" id="admin-teacher-search-input" class="input-field" placeholder="🔍 Search teacher to edit or delete (by username or display name)..." oninput="app.renderAdminRoster()" style="padding: 10px 12px; font-size: 13px; margin: 6px 0;">
@@ -525,28 +590,28 @@
             <label style="font-size: 12px; color: var(--accent-gold); font-weight: 700;">⏱️ Step 1: Points Reset Cycle</label>
             <div style="font-size: 11px; color: var(--text-dim);">How does your school conclude championships and reset points?</div>
             <div class="segment-bar" style="margin: 3px 0;">
-              <div id="btn-reg-cycle-yearly" class="segment-btn active" onclick="app.setRegisterCycle('yearly')">📅 Yearly (e.g. Witty)</div>
-              <div id="btn-reg-cycle-term" class="segment-btn" onclick="app.setRegisterCycle('term')">🗓️ Term-Wise (e.g. Poddar)</div>
+              <div id="btn-reg-cycle-yearly" class="segment-btn active" onclick="app.setRegisterCycle('yearly')">📅 Yearly / Annual</div>
+              <div id="btn-reg-cycle-term" class="segment-btn" onclick="app.setRegisterCycle('term')">🗓️ Term-Wise (2 Terms)</div>
             </div>
             <div id="reg-cycle-hint" style="font-size: 11px; color: rgba(245,244,240,0.65); line-height: 1.35;">
-              Points accumulate across the full academic year and reset once at the end of the year.
+              Points accumulate across the full academic year and reset once annually at year-end.
             </div>
           </div>
 
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Name</label>
-          <input type="text" id="reg-school-name" class="input-field" placeholder="e.g. Oakridge International Academy">
+          <input type="text" id="reg-school-name" class="input-field" placeholder="School Name">
 
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Motto / Tagline</label>
-          <input type="text" id="reg-school-motto" class="input-field" placeholder="e.g. Honour, Excellence, Integrity">
+          <input type="text" id="reg-school-motto" class="input-field" placeholder="Honour, Excellence, Integrity">
 
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Code</label>
-          <input type="text" id="reg-school-code" class="input-field" placeholder="e.g. OAK-01" style="text-transform: uppercase;">
+          <input type="text" id="reg-school-code" class="input-field" placeholder="School Code" style="text-transform: uppercase;">
 
           <!-- User Decides Admin Code -->
           <div style="background: rgba(157, 101, 255, 0.08); border: 1px solid rgba(157, 101, 255, 0.3); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
             <label style="font-size: 12px; color: #c9a7ff; font-weight: 700;">🔐 Set Your Admin Security Code / PIN</label>
             <div class="password-field-wrapper">
-              <input type="password" id="reg-school-pin" class="input-field" placeholder="Enter your private Admin Code (e.g. 9988 or mySecret)">
+              <input type="password" id="reg-school-pin" class="input-field" placeholder="Enter your private Admin Code">
               <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('reg-school-pin', this)" title="Show Admin Code">👁️</button>
             </div>
             <div style="font-size: 11px; color: var(--text-dim);">You decide this code. You will need it to unlock the School Admin Portal.</div>
@@ -613,10 +678,10 @@
           </div>
           
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">House Name</label>
-          <input type="text" id="new-house-name" placeholder="e.g. Gryffindor or Pegasus" class="input-field">
+          <input type="text" id="new-house-name" placeholder="House Name" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Emblem Emoji / Symbol</label>
-          <input type="text" id="new-house-emblem" placeholder="e.g. 🦁 or 🦅 or 🔥" maxlength="3" class="input-field">
+          <input type="text" id="new-house-emblem" placeholder="Emblem" maxlength="3" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Brand Color</label>
           <div class="color-presets-row" id="color-presets">
@@ -651,7 +716,7 @@
           <input type="text" id="edit-house-name" placeholder="House Name" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Emblem Emoji / Symbol</label>
-          <input type="text" id="edit-house-emblem" placeholder="e.g. 🦁, 🦅, 🔥" maxlength="3" class="input-field">
+          <input type="text" id="edit-house-emblem" placeholder="Emblem" maxlength="3" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Brand Color</label>
           <div class="color-presets-row" id="edit-house-color-presets">
@@ -688,11 +753,11 @@
           <div style="display: flex; gap: 10px;">
             <div style="flex: 1;">
               <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Grade</label>
-              <input type="text" id="edit-student-grade" placeholder="e.g. 5" class="input-field">
+              <input type="text" id="edit-student-grade" placeholder="Grade" class="input-field">
             </div>
             <div style="flex: 1;">
               <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Division</label>
-              <input type="text" id="edit-student-div" placeholder="e.g. A" class="input-field">
+              <input type="text" id="edit-student-div" placeholder="Division" class="input-field">
             </div>
           </div>
 
@@ -719,7 +784,7 @@
           <input type="text" id="edit-teacher-username" placeholder="Username" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Display Name</label>
-          <input type="text" id="edit-teacher-display" placeholder="Display Name (e.g. Mr. Smith)" class="input-field">
+          <input type="text" id="edit-teacher-display" placeholder="Display Name" class="input-field">
 
           <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Password</label>
           <div class="password-field-wrapper">
@@ -731,16 +796,76 @@
         </div>
       </div>
 
+      <!-- ===================================================================
+           MODAL: ADD SINGLE STUDENT
+           =================================================================== -->
+      <div id="modal-add-student" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-add-student')">
+        <div class="modal-content" style="max-width: 440px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">➕ Add Student to Roster</div>
+            <div class="icon-btn" onclick="app.closeModal('modal-add-student')">✕</div>
+          </div>
+          
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Student Full Name</label>
+          <input type="text" id="new-student-name" placeholder="Student Full Name" class="input-field">
+
+          <div style="display: flex; gap: 10px;">
+            <div style="flex: 1;">
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Grade</label>
+              <input type="text" id="new-student-grade" placeholder="Grade" class="input-field">
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Division</label>
+              <input type="text" id="new-student-div" placeholder="Division" class="input-field">
+            </div>
+          </div>
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Assigned House</label>
+          <select id="new-student-house" class="input-field" style="background:#1B1E27; color:#F5F4F0; cursor:pointer;"></select>
+
+          <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; margin-top:8px; font-weight:600;" onclick="app.saveSingleStudent()">Add Student</button>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: ADD SINGLE TEACHER
+           =================================================================== -->
+      <div id="modal-add-teacher" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-add-teacher')">
+        <div class="modal-content" style="max-width: 440px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">➕ Add Teacher to Staff</div>
+            <div class="icon-btn" onclick="app.closeModal('modal-add-teacher')">✕</div>
+          </div>
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Username (Login ID)</label>
+          <input type="text" id="new-teacher-user" placeholder="Username" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Display Name</label>
+          <input type="text" id="new-teacher-disp" placeholder="Display Name" class="input-field">
+
+          <label style="font-size:11px; color:var(--text-sub); text-transform:uppercase;">Password</label>
+          <div class="password-field-wrapper">
+            <input type="password" id="new-teacher-pass" placeholder="Password" class="input-field">
+            <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('new-teacher-pass', this)" title="Show Password">👁️</button>
+          </div>
+
+          <button class="primary-btn" style="background:var(--accent-gold); color:#12141A; margin-top:8px; font-weight:600;" onclick="app.saveSingleTeacher()">Add Teacher</button>
+        </div>
+      </div>
+
       <!-- Toast Notification -->
       <div id="toast" class="toast-msg"></div>
 
     </div>
   </div>
 
+  <!-- Excel Parser (SheetJS for .xlsx/.xls parsing) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <!-- Firebase Cloud Realtime Sync (Zero-Backend Multi-Device Live Sync) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script src="app.js?v=6.0"></script>
+  <script src="app.js?v=7.0"></script>
 </body>
 </html>
