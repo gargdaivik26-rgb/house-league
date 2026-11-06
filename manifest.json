@@ -1,6 +1,6 @@
 {
-  "name": "House Cup SaaS - Multi-School Edition",
-  "short_name": "House Cup",
+  "name": "HouseLeague — Multi-School Edition",
+  "short_name": "HouseLeague",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0B0C10",

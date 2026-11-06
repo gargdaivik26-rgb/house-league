@@ -1,5 +1,5 @@
 /**
- * House Cup SaaS — Multi-Tenant Backend Server
+ * HouseLeague — Multi-Tenant Backend Server
  * Zero external dependencies (uses native Node.js http, fs, and path).
  * Serves the web app and provides REST API for multiple schools.
  */
@@ -90,7 +90,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`=======================================================`);
-  console.log(`🏆 House Cup SaaS Server running at: http://localhost:${PORT}`);
+  console.log(`🏆 HouseLeague Server running at: http://localhost:${PORT}`);
   console.log(`   Multi-School Edition with Admin Portal & Dynamic Houses`);
   console.log(`=======================================================`);
 });

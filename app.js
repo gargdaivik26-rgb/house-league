@@ -1,5 +1,5 @@
 /**
- * House Cup SaaS — Multi-School Application Logic
+ * HouseLeague — Multi-School Application Logic
  * Entry Screen: School Code Entry & Add School
  * Dynamic Houses: Zero Hardcoded Templates — Admin defines all houses
  * User-Decided Admin Code & Rich Previous-Style Admin Panel (No Add School in Admin)
