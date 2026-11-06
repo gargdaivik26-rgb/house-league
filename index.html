@@ -116,9 +116,9 @@
 
           <!-- Footer: Sync Status & Admin Portal Link -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding: 0 4px;">
-            <span class="sync-status-indicator" onclick="app.openSyncModal()" style="cursor: pointer;">
+            <span class="sync-status-indicator" style="cursor: default; user-select: none;">
               <span id="sync-dot-login" class="sync-dot"></span>
-              <span id="sync-text-login" style="color: rgba(245,244,240,0.5); font-size: 11.5px;">Cloud Database Active</span>
+              <span id="sync-text-login" style="color: rgba(245,244,240,0.5); font-size: 11.5px;">Cloud Sync Active</span>
             </span>
             <span onclick="app.openAdminLoginModal()" style="color: rgba(245,244,240,0.5); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
               🔒 Admin Login
@@ -136,7 +136,7 @@
         <div class="top-nav">
           <div class="nav-title">HOUSE CUP</div>
           <div class="nav-actions">
-            <span class="sync-status-indicator" onclick="app.openSyncModal()" style="cursor: pointer;" title="Sync Status">
+            <span class="sync-status-indicator" style="cursor: default; user-select: none;" title="Cloud Sync Active">
               <span id="sync-dot-home" class="sync-dot"></span>
               <span style="font-size: 11px; color: rgba(245,244,240,0.5);">Sync</span>
             </span>
@@ -588,45 +588,6 @@
         </div>
       </div>
 
-      <!-- ===================================================================
-           MODAL: SYNC SETTINGS & CLOUD REALTIME DATABASE
-           =================================================================== -->
-      <div id="modal-sync" class="modal-overlay" onclick="if(event.target===this) app.closeSyncModal()">
-        <div class="modal-content" style="max-width: 360px; max-height: 85vh; overflow-y: auto;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div class="font-oswald" style="font-size: 18px; font-weight: 700;">Multi-School Cloud Sync</div>
-            <div class="icon-btn" onclick="app.closeSyncModal()">✕</div>
-          </div>
-
-          <div id="sync-status-banner" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
-            <div id="sync-modal-dot" class="sync-dot"></div>
-            <div>
-              <div id="sync-modal-status-title" style="font-size: 12.5px; font-weight: 600; color: #F5F4F0;">Local Storage Mode</div>
-              <div id="sync-modal-status-sub" style="font-size: 11px; color: var(--text-dim);">Changes stay on this device only</div>
-            </div>
-          </div>
-
-          <div style="font-size: 12.5px; color: var(--text-dim); line-height: 1.45;">
-            Active School: <strong id="sync-school-name" style="color: #F5F4F0;">None</strong><br>
-            To sync live across different devices and locations (e.g. Malad East &amp; West) in real time with 100% separate school storage, connect your free Google Firebase database below.
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <label style="font-size: 11.5px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Firebase Database URL / Config</label>
-            <textarea id="sync-firebase-config-input" class="input-field" rows="3" placeholder='Paste your Firebase Database URL (e.g. https://your-app-default-rtdb.firebaseio.com) or Firebase config JSON' style="font-size: 11.5px; font-family: monospace; resize: vertical; line-height: 1.4;"></textarea>
-          </div>
-
-          <div style="display: flex; gap: 8px;">
-            <button class="primary-btn" style="padding: 10px; flex: 1;" onclick="app.saveCloudSyncConfig()">Connect &amp; Sync</button>
-            <button class="btn-cancel" style="padding: 10px; width: auto;" onclick="app.disconnectCloudSync()">Disconnect</button>
-          </div>
-
-          <div style="font-size: 11px; color: var(--text-dim); line-height: 1.4; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
-            🔒 <strong>Multi-Tenant Isolation:</strong> Each school is saved under its own separate branch (<code>/schools/&lt;code&gt;</code>). School A can never see or modify School B.
-          </div>
-        </div>
-      </div>
-
       <!-- Toast Notification -->
       <div id="toast" class="toast-msg"></div>
 
@@ -637,6 +598,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=4.1"></script>
 </body>
 </html>

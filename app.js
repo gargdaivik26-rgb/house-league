@@ -1426,7 +1426,7 @@ class HouseCupApp {
 
     if (connected) {
       if (loginDot) loginDot.style.background = '#28B577';
-      if (loginText) loginText.textContent = 'Cloud Sync Active 🟢';
+      if (loginText) loginText.textContent = 'Cloud Sync Active';
       if (homeDot) homeDot.style.background = '#28B577';
       if (modalDot) modalDot.style.background = '#28B577';
       if (modalTitle) {
@@ -1506,20 +1506,11 @@ class HouseCupApp {
   }
 
   openSyncModal() {
-    const sch = this.getActiveSchool();
-    const nameEl = document.getElementById('sync-school-name');
-    if (nameEl) nameEl.textContent = sch ? `${sch.name} (${sch.code})` : 'None';
-
-    const input = document.getElementById('sync-firebase-config-input');
-    if (input) {
-      input.value = localStorage.getItem('housecup_saas_firebase_config') || 'https://housecup-6fb50-default-rtdb.firebaseio.com';
-    }
-    this.updateCloudStatusUI(this.cloudEnabled);
-    this.openModal('modal-sync');
+    // Non-clickable status badge
   }
 
   closeSyncModal() {
-    this.closeModal('modal-sync');
+    // Non-clickable status badge
   }
 
   saveCloudSyncConfig() {
