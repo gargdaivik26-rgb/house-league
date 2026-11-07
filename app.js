@@ -86,7 +86,7 @@ class HouseCupApp {
 
   // --- Persistence with Clean Reset to No School ---
   loadStorage() {
-    const RESET_KEY = 'housecup_saas_reset_v8_zero_schools';
+    const RESET_KEY = 'housecup_saas_reset_v9_zero_schools';
     // User requested to reset data to zero schools for clean testing restart
     if (localStorage.getItem(RESET_KEY) !== 'done') {
       localStorage.removeItem('housecup_saas_schools');
