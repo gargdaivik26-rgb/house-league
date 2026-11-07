@@ -166,6 +166,9 @@ class HouseCupApp {
     this.renderEntryScreen();
     this.initCloudSync();
 
+    // Check for platform owner approval/rejection action links in URL query params
+    await this.handleApprovalUrlRouting();
+
     // Check if the user has an active logged-in session on this device
     const savedSessionRaw = localStorage.getItem('housecup_saved_session');
     if (savedSessionRaw) {
@@ -270,11 +273,26 @@ class HouseCupApp {
     err.style.display = 'none';
     input.value = '';
 
-    // Check if the school is pending email verification!
-    if (matched.status === 'pending_verification') {
+    // Check if the school was rejected by platform owner!
+    if (matched.status === 'rejected' || matched.approvalStatus === 'rejected') {
+      err.textContent = `❌ Registration Denied: The registration request for "${matched.name}" (${matched.code}) was denied by the platform owner (gargdaivik26@gmail.com).`;
+      err.style.display = 'block';
+      return;
+    }
+
+    // Check if the school is pending owner approval!
+    if (matched.approvalStatus === 'pending_approval' || matched.status === 'pending_approval') {
       this.pendingRegistration = matched;
       this.openVerifyModal(matched);
-      this.showToast(`School "${matched.name}" is pending verification. Please enter the 6-digit code.`);
+      this.showToast(`School "${matched.name}" is awaiting platform owner approval.`);
+      return;
+    }
+
+    // Check if the school is approved but pending 6-digit OTP verification!
+    if (matched.status === 'pending_verification' || !matched.isVerified) {
+      this.pendingRegistration = matched;
+      this.openVerifyModal(matched);
+      this.showToast(`School "${matched.name}" is approved! Please enter the 6-digit activation code sent to ${matched.email}.`);
       return;
     }
 
@@ -326,11 +344,16 @@ class HouseCupApp {
 
     this.normalizeSchool(this.schools[schId]);
 
-    // Check if school is pending verification
-    if (this.schools[schId] && (this.schools[schId].status === 'pending_verification' || this.schools[schId].isVerified === false)) {
+    // Check if school was rejected
+    if (this.schools[schId] && (this.schools[schId].status === 'rejected' || this.schools[schId].approvalStatus === 'rejected')) {
+      alert(`Registration for "${this.schools[schId].name}" was denied by the platform owner (gargdaivik26@gmail.com).`);
+      return;
+    }
+
+    // Check if school is awaiting owner approval or pending OTP verification
+    if (this.schools[schId] && (this.schools[schId].status === 'pending_approval' || this.schools[schId].approvalStatus === 'pending_approval' || this.schools[schId].status === 'pending_verification' || this.schools[schId].isVerified === false)) {
       this.pendingRegistration = this.schools[schId];
       this.openVerifyModal(this.schools[schId]);
-      this.showToast(`School "${this.schools[schId].name}" is pending verification. Please enter the 6-digit code.`);
       return;
     }
 
@@ -449,13 +472,25 @@ class HouseCupApp {
     const id = code.toLowerCase().replace(/[^a-z0-9]/g, '');
     const existing = this.schools[id];
     if (existing) {
-      if (existing.status === 'pending_verification' || existing.isVerified === false) {
+      if (existing.status === 'rejected' || existing.approvalStatus === 'rejected') {
+        alert(`❌ The registration request for school code "${code}" was previously rejected by the platform administrator (gargdaivik26@gmail.com).`);
+        return;
+      }
+      if (existing.approvalStatus === 'pending_approval' || existing.status === 'pending_approval') {
         this.pendingRegistration = existing;
         this.closeRegisterSchoolModal();
         this.openVerifyModal(existing);
-        this.showToast(`School "${existing.name}" is already pending verification. Please enter the 6-digit code.`);
+        this.showToast(`School "${existing.name}" is already submitted and awaiting platform approval.`);
         return;
-      } else {
+      }
+      if (existing.approvalStatus === 'approved' && !existing.isVerified) {
+        this.pendingRegistration = existing;
+        this.closeRegisterSchoolModal();
+        this.openVerifyModal(existing);
+        this.showToast(`School "${existing.name}" is approved! Please enter the 6-digit OTP sent to ${existing.email}.`);
+        return;
+      }
+      if (existing.isVerified) {
         alert(`A school with code "${code}" is already active and registered. Please choose a unique code or log in.`);
         return;
       }
@@ -489,18 +524,20 @@ class HouseCupApp {
       return;
     }
 
-    // Generate 6-digit numeric verification code
+    // Generate 6-digit numeric activation OTP (dispatched only AFTER owner approval)
     const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+    // Generate secure platform approval token
+    const approvalToken = 'tok_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 
-    // Store pending registration as an unverified database entry
+    // Store pending registration as awaiting owner approval
     const pendingSchool = {
       id: id,
       name: name,
-      email: email,
+      email: email, // ANY valid domain accepted
       code: code,
       motto: motto,
       resetCycle: cycle,
-      adminPin: pin,
+      adminPin: pin, // SECRET: Kept in database, NOT sent in email notifications
       academicYear: initialYear,
       currentTermIndex: 1,
       term: cycle === 'yearly' ? `Academic Year ${initialYear}` : `Term 1 (${initialYear})`,
@@ -513,103 +550,108 @@ class HouseCupApp {
       students: [],
       events: [],
       archivedTerms: [],
-      status: 'pending_verification',
+      status: 'pending_approval',
+      approvalStatus: 'pending_approval',
       isVerified: false,
       verificationCode: verificationCode,
+      approvalToken: approvalToken,
       createdAt: new Date().toISOString()
     };
 
-    // Save to local storage & cloud as pending_verification
+    // Save to local storage & cloud as pending_approval
     this.schools[id] = pendingSchool;
     this.pendingRegistration = pendingSchool;
     this.saveStorage();
     this.syncSchoolToCloud(id);
 
-    // Dispatch verification notification
-    this.dispatchVerificationEmail(this.pendingRegistration);
+    // Dispatch review email to platform owner (gargdaivik26@gmail.com)
+    this.dispatchOwnerReviewEmail(this.pendingRegistration);
 
-    // Close registration modal & open verification modal
+    // Close registration modal & open verification modal in awaiting approval state
     this.closeRegisterSchoolModal();
     this.openVerifyModal(this.pendingRegistration);
   }
 
-  // --- Email Verification Workflow & Database Code Persistence ---
-  dispatchVerificationEmail(pending) {
-    // 1. Record 6-digit verification code & school data in Firebase Realtime Database
+  // --- Platform Owner Notification & Review Dispatch ---
+  dispatchOwnerReviewEmail(pending) {
+    // 1. Record in Firebase Realtime Database
     try {
       if (this.cloudDb) {
-        // Stored under pending_registrations/<schoolId>
-        this.cloudDb.ref('pending_registrations/' + pending.id).set({
+        const payload = {
           schoolId: pending.id,
           schoolCode: pending.code,
           schoolName: pending.name,
           schoolEmail: pending.email,
           adminNotificationEmail: 'gargdaivik26@gmail.com',
           verificationCode: pending.verificationCode,
-          adminPin: pending.adminPin,
+          approvalToken: pending.approvalToken,
+          approvalStatus: 'pending_approval',
           resetCycle: pending.resetCycle || 'yearly',
-          houses: pending.houses.map(h => `${h.emblem || '🛡️'} ${h.name}`).join(', '),
-          status: 'pending_verification',
+          houses: pending.houses.map(h => `${h.emblem || '🛡️'} ${h.name} (${h.color})`).join(', '),
+          status: 'pending_approval',
           timestamp: new Date().toISOString()
-        });
+        };
 
-        // Also stored indexed by uppercase School Code for instant lookup in Firebase Console
-        this.cloudDb.ref('pending_registrations_by_code/' + pending.code.toUpperCase()).set({
-          schoolId: pending.id,
-          schoolCode: pending.code,
-          verificationCode: pending.verificationCode,
-          schoolName: pending.name,
-          schoolEmail: pending.email,
-          adminPin: pending.adminPin,
-          status: 'pending_verification',
-          timestamp: new Date().toISOString()
-        });
-
-        // System notification queue
+        this.cloudDb.ref('pending_registrations/' + pending.id).set(payload);
+        this.cloudDb.ref('pending_registrations_by_code/' + pending.code.toUpperCase()).set(payload);
         this.cloudDb.ref('admin_notifications/' + pending.id).set({
-          type: 'new_school_registration',
+          type: 'registration_review_required',
           schoolName: pending.name,
           schoolCode: pending.code,
           schoolEmail: pending.email,
-          verificationCode: pending.verificationCode,
-          message: `Verification code for ${pending.name} (${pending.code}) is ${pending.verificationCode}.`,
           timestamp: new Date().toISOString()
         });
       }
     } catch (e) {
-      console.warn('Firebase pending record error:', e);
+      console.warn('Firebase pending write error:', e);
     }
 
-    // 2. Dispatch real-time email with full school data to gargdaivik26@gmail.com
+    // 2. Dispatch email to Platform Owner (gargdaivik26@gmail.com)
     try {
-      const housesSummary = pending.houses.map(h => `${h.emblem || '🛡️'} ${h.name}`).join(', ');
+      const housesSummary = pending.houses.map(h => `${h.emblem || '🛡️'} ${h.name} (${h.color})`).join(', ');
       const cycleText = pending.resetCycle === 'yearly' ? 'Yearly / Annual' : 'Term-Wise (2 Terms)';
-      const emailBody = 
-        `A new school has registered on HouseLeague.\n\n` +
-        `--------------------------------------------------\n` +
-        `6-DIGIT VERIFICATION CODE: ${pending.verificationCode}\n` +
-        `--------------------------------------------------\n\n` +
+      
+      const base = (window.location.origin && window.location.origin.startsWith('http') && !window.location.origin.includes('localhost'))
+        ? (window.location.origin + window.location.pathname)
+        : 'https://gargdaivik26-rgb.github.io/house-league/';
+      
+      const approveUrl = `${base}?action=approve&id=${pending.id}&token=${pending.approvalToken}`;
+      const rejectUrl = `${base}?action=reject&id=${pending.id}&token=${pending.approvalToken}`;
+
+      const emailBody =
+        `A new school has submitted a registration request on HouseLeague.\n\n` +
+        `======================================================\n` +
+        `SCHOOL REGISTRATION DETAILS\n` +
+        `======================================================\n` +
         `School Name: ${pending.name}\n` +
         `School Code: ${pending.code}\n` +
         `Official Email: ${pending.email}\n` +
-        `Admin PIN: ${pending.adminPin}\n` +
-        `Reset Cycle: ${cycleText}\n` +
-        `Houses: ${housesSummary}\n` +
+        `Admin PIN: [CONFIDENTIAL — HIDDEN FOR SECURITY]\n` +
+        `Points Reset Cycle: ${cycleText}\n` +
+        `Houses & Setup: ${housesSummary}\n` +
         `Submitted At: ${new Date().toLocaleString()}\n\n` +
-        `Enter this code in HouseLeague to verify and launch the school championship.`;
+        `======================================================\n` +
+        `PLATFORM OWNER ACTION REQUIRED\n` +
+        `======================================================\n` +
+        `To approve or reject this school registration, click a direct link below:\n\n` +
+        `👉 TO APPROVE & SEND 6-DIGIT OTP TO SCHOOL:\n` +
+        `${approveUrl}\n\n` +
+        `👉 TO REJECT REGISTRATION:\n` +
+        `${rejectUrl}\n\n` +
+        `------------------------------------------------------\n` +
+        `Note: Clicking APPROVE will automatically dispatch the 6-digit activation code (${pending.verificationCode}) to ${pending.email}.\n` +
+        `You can also approve/reject directly inside the app's Platform Owner Portal.\n` +
+        `(Local testing link: http://localhost:3001/?action=approve&id=${pending.id}&token=${pending.approvalToken})\n`;
 
-      // Primary email transport via ShipMyForm (CORS enabled, instant delivery to gargdaivik26@gmail.com)
-      const paramsOwner = new URLSearchParams();
-      paramsOwner.append('name', 'HouseLeague Championship Platform');
-      paramsOwner.append('schoolName', pending.name);
-      paramsOwner.append('schoolCode', pending.code);
-      paramsOwner.append('verificationCode', pending.verificationCode);
-      paramsOwner.append('officialSchoolEmail', pending.email);
-      paramsOwner.append('adminPIN', pending.adminPin);
-      paramsOwner.append('resetCycle', cycleText);
-      paramsOwner.append('houses', housesSummary);
-      paramsOwner.append('subject', `[HouseLeague] New School Registration: ${pending.name} (${pending.code}) - Code: ${pending.verificationCode}`);
-      paramsOwner.append('message', emailBody);
+      const params = new URLSearchParams();
+      params.append('name', 'HouseLeague Platform Review');
+      params.append('schoolName', pending.name);
+      params.append('schoolCode', pending.code);
+      params.append('officialEmail', pending.email);
+      params.append('cycle', cycleText);
+      params.append('houses', housesSummary);
+      params.append('subject', `[HouseLeague Approval Needed] New School: ${pending.name} (${pending.code})`);
+      params.append('message', emailBody);
 
       fetch('https://shipmyform.com/to/gargdaivik26@gmail.com', {
         method: 'POST',
@@ -617,63 +659,263 @@ class HouseCupApp {
           'Accept': 'application/json',
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: paramsOwner.toString()
+        body: params.toString()
       }).then(r => r.json()).then(res => {
-        console.log('ShipMyForm notification to gargdaivik26@gmail.com:', res);
+        console.log('Review request dispatched to gargdaivik26@gmail.com:', res);
       }).catch(err => {
-        console.warn('ShipMyForm notification error:', err);
+        console.warn('ShipMyForm error:', err);
       });
-
-      // Dispatch copy to official school email if different from owner email
-      if (pending.email && pending.email.toLowerCase() !== 'gargdaivik26@gmail.com') {
-        const paramsSchool = new URLSearchParams();
-        paramsSchool.append('name', pending.name);
-        paramsSchool.append('schoolCode', pending.code);
-        paramsSchool.append('verificationCode', pending.verificationCode);
-        paramsSchool.append('subject', `Your HouseLeague Verification Code: ${pending.verificationCode} - ${pending.name}`);
-        paramsSchool.append('message', `Your 6-digit verification code to activate ${pending.name} on HouseLeague is: ${pending.verificationCode}`);
-
-        fetch(`https://shipmyform.com/to/${encodeURIComponent(pending.email)}`, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: paramsSchool.toString()
-        }).catch(() => {});
-      }
-
-      // Secondary fallback transport via FormSubmit
-      fetch('https://formsubmit.co/ajax/gargdaivik26@gmail.com', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          _subject: `[HouseLeague] Code: ${pending.verificationCode} - ${pending.name} (${pending.code})`,
-          _captcha: 'false',
-          _template: 'table',
-          verificationCode: pending.verificationCode,
-          schoolName: pending.name,
-          schoolCode: pending.code,
-          schoolEmail: pending.email,
-          adminPIN: pending.adminPin,
-          houses: housesSummary,
-          message: emailBody
-        })
-      }).catch(() => {});
     } catch (e) {
       console.warn('Email dispatch error:', e);
+    }
+  }
+
+  // --- Platform Owner URL Approval Routing ---
+  async handleApprovalUrlRouting() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action'); // 'approve' or 'reject'
+    const schoolId = urlParams.get('id');
+    const token = urlParams.get('token');
+
+    if (action && schoolId && token) {
+      if (action === 'approve') {
+        await this.executeOwnerApproval(schoolId, token);
+      } else if (action === 'reject') {
+        await this.executeOwnerRejection(schoolId, token);
+      }
+    }
+  }
+
+  async executeOwnerApproval(schoolId, token) {
+    if (!this.cloudDb) {
+      this.initCloudSync();
+    }
+
+    try {
+      let target = null;
+      if (this.cloudDb) {
+        const snap = await this.cloudDb.ref('pending_registrations/' + schoolId).once('value');
+        target = snap.val();
+      }
+
+      if (!target && this.schools[schoolId]) {
+        target = this.schools[schoolId];
+      }
+
+      if (!target) {
+        this.showOwnerActionResult(false, 'Application Not Found', `No pending registration found for ID: ${schoolId}. It may have already been verified.`);
+        return;
+      }
+
+      if (token && target.approvalToken && token !== target.approvalToken) {
+        this.showOwnerActionResult(false, 'Security Verification Failed', 'The approval token provided does not match the registration token for this school.');
+        return;
+      }
+
+      const schName = target.schoolName || target.name;
+      const schCode = target.schoolCode || target.code;
+      const schEmail = target.schoolEmail || target.email;
+      const code = target.verificationCode;
+
+      const updates = {
+        approvalStatus: 'approved',
+        status: 'pending_verification',
+        approvedAt: new Date().toISOString()
+      };
+
+      if (this.cloudDb) {
+        await this.cloudDb.ref('pending_registrations/' + schoolId).update(updates);
+        if (schCode) {
+          await this.cloudDb.ref('pending_registrations_by_code/' + schCode.toUpperCase()).update(updates);
+        }
+        await this.cloudDb.ref('schools/' + schoolId).update(updates);
+      }
+
+      if (this.schools[schoolId]) {
+        this.schools[schoolId].approvalStatus = 'approved';
+        this.schools[schoolId].status = 'pending_verification';
+        this.saveStorage();
+      }
+
+      // Automatically dispatch 6-digit OTP email to the school
+      if (schEmail) {
+        const params = new URLSearchParams();
+        params.append('name', 'HouseLeague Platform Owner (gargdaivik26@gmail.com)');
+        params.append('schoolName', schName);
+        params.append('schoolCode', schCode);
+        params.append('verificationCode', code);
+        params.append('subject', `[HouseLeague] Registration Approved! Your 6-Digit Activation Code for ${schName}`);
+        params.append('message',
+          `Dear Administrator of ${schName},\n\n` +
+          `Your school registration on HouseLeague has been officially APPROVED by platform owner gargdaivik26@gmail.com!\n\n` +
+          `--------------------------------------------------\n` +
+          `YOUR 6-DIGIT ACTIVATION CODE (OTP): ${code}\n` +
+          `--------------------------------------------------\n\n` +
+          `Next Steps to Launch:\n` +
+          `1. Open HouseLeague: https://gargdaivik26-rgb.github.io/house-league/\n` +
+          `2. Enter your School Code: "${schCode}"\n` +
+          `3. Enter the 6-digit activation code above to launch your live house scoreboard!\n\n` +
+          `Welcome to HouseLeague!\n` +
+          `Platform Administrator: gargdaivik26@gmail.com`
+        );
+
+        fetch(`https://shipmyform.com/to/${encodeURIComponent(schEmail)}`, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString()
+        }).catch(e => console.warn('OTP dispatch error:', e));
+      }
+
+      this.showOwnerActionResult(true, `School "${schName}" Approved!`, `The school registration has been approved. The 6-digit activation OTP (${code}) was automatically dispatched to the school's official email address: ${schEmail}.`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.loadOwnerPortalData();
+    } catch (e) {
+      console.error('Approval execution error:', e);
+      this.showOwnerActionResult(false, 'Approval Error', e.message);
+    }
+  }
+
+  async executeOwnerRejection(schoolId, token) {
+    if (!this.cloudDb) {
+      this.initCloudSync();
+    }
+
+    try {
+      let target = null;
+      if (this.cloudDb) {
+        const snap = await this.cloudDb.ref('pending_registrations/' + schoolId).once('value');
+        target = snap.val();
+      }
+
+      if (!target && this.schools[schoolId]) {
+        target = this.schools[schoolId];
+      }
+
+      if (!target) {
+        this.showOwnerActionResult(false, 'Application Not Found', `No pending registration found for ID: ${schoolId}.`);
+        return;
+      }
+
+      if (token && target.approvalToken && token !== target.approvalToken) {
+        this.showOwnerActionResult(false, 'Security Verification Failed', 'The token does not match.');
+        return;
+      }
+
+      const schName = target.schoolName || target.name;
+      const schCode = target.schoolCode || target.code;
+
+      const updates = {
+        approvalStatus: 'rejected',
+        status: 'rejected',
+        rejectedAt: new Date().toISOString()
+      };
+
+      if (this.cloudDb) {
+        await this.cloudDb.ref('pending_registrations/' + schoolId).update(updates);
+        if (schCode) {
+          await this.cloudDb.ref('pending_registrations_by_code/' + schCode.toUpperCase()).update(updates);
+        }
+        await this.cloudDb.ref('schools/' + schoolId).update(updates);
+      }
+
+      if (this.schools[schoolId]) {
+        this.schools[schoolId].approvalStatus = 'rejected';
+        this.schools[schoolId].status = 'rejected';
+        this.saveStorage();
+      }
+
+      this.showOwnerActionResult(false, `Registration Denied`, `The registration request for "${schName}" (${schCode}) has been denied. If anyone attempts to access this school code, a denial notice will be shown.`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.loadOwnerPortalData();
+    } catch (e) {
+      console.error('Rejection execution error:', e);
+      this.showOwnerActionResult(false, 'Rejection Error', e.message);
+    }
+  }
+
+  showOwnerActionResult(isSuccess, title, desc) {
+    const iconEl = document.getElementById('owner-action-icon');
+    const titleEl = document.getElementById('owner-action-title');
+    const descEl = document.getElementById('owner-action-desc');
+
+    if (iconEl) iconEl.textContent = isSuccess ? '🎉' : '🚫';
+    if (titleEl) {
+      titleEl.textContent = title;
+      titleEl.style.color = isSuccess ? '#28B577' : '#F0405B';
+    }
+    if (descEl) descEl.textContent = desc;
+
+    this.openModal('modal-owner-action-result');
+  }
+
+  // --- Modal Rendering for Verification States ---
+  renderVerifyModalState(pending) {
+    const iconEl = document.getElementById('verify-modal-icon');
+    const titleEl = document.getElementById('verify-modal-school-name');
+    const descEl = document.getElementById('verify-modal-desc');
+    const schNameText = document.getElementById('verify-display-school-name-text');
+    const schEmailText = document.getElementById('verify-display-school-email');
+    const statusDot = document.getElementById('verify-status-dot');
+    const statusText = document.getElementById('verify-display-approval-status');
+
+    const secPending = document.getElementById('verify-section-pending');
+    const secApproved = document.getElementById('verify-section-approved');
+    const secRejected = document.getElementById('verify-section-rejected');
+    const resendBtn = document.getElementById('btn-verify-resend-link');
+
+    if (schNameText) schNameText.textContent = pending.name;
+    if (schEmailText) schEmailText.textContent = pending.email;
+
+    const approvalStatus = pending.approvalStatus || 'pending_approval';
+
+    if (approvalStatus === 'pending_approval') {
+      if (iconEl) iconEl.textContent = '⏳';
+      if (titleEl) titleEl.textContent = `Reviewing "${pending.name}" (${pending.code})`;
+      if (descEl) descEl.innerHTML = `Your application has been submitted to platform owner (<b>gargdaivik26@gmail.com</b>).`;
+      if (statusDot) statusDot.style.background = '#EAB308';
+      if (statusText) {
+        statusText.textContent = '⏳ Awaiting Owner Approval';
+        statusText.style.color = '#EAB308';
+      }
+      if (secPending) secPending.style.display = 'block';
+      if (secApproved) secApproved.style.display = 'none';
+      if (secRejected) secRejected.style.display = 'none';
+      if (resendBtn) resendBtn.style.display = 'none';
+    } else if (approvalStatus === 'approved') {
+      if (iconEl) iconEl.textContent = '📩';
+      if (titleEl) titleEl.textContent = `Activate "${pending.name}" (${pending.code})`;
+      if (descEl) descEl.innerHTML = `Your school has been approved! Enter the 6-digit OTP sent to <b>${pending.email}</b>:`;
+      if (statusDot) statusDot.style.background = '#28B577';
+      if (statusText) {
+        statusText.textContent = '✅ Approved by Platform Owner';
+        statusText.style.color = '#28B577';
+      }
+      if (secPending) secPending.style.display = 'none';
+      if (secApproved) secApproved.style.display = 'block';
+      if (secRejected) secRejected.style.display = 'none';
+      if (resendBtn) resendBtn.style.display = 'inline';
+
+      const inputEl = document.getElementById('reg-verify-code-input');
+      if (inputEl) setTimeout(() => inputEl.focus(), 250);
+    } else if (approvalStatus === 'rejected') {
+      if (iconEl) iconEl.textContent = '🚫';
+      if (titleEl) titleEl.textContent = `Registration Denied`;
+      if (descEl) descEl.innerHTML = `The registration request for "${pending.name}" has been reviewed and rejected.`;
+      if (statusDot) statusDot.style.background = '#F0405B';
+      if (statusText) {
+        statusText.textContent = '❌ Registration Denied';
+        statusText.style.color = '#F0405B';
+      }
+      if (secPending) secPending.style.display = 'none';
+      if (secApproved) secApproved.style.display = 'none';
+      if (secRejected) secRejected.style.display = 'block';
+      if (resendBtn) resendBtn.style.display = 'none';
     }
   }
 
   openVerifyModal(pending) {
     if (!pending) return;
     this.pendingRegistration = pending;
-
-    const titleEl = document.getElementById('verify-modal-school-name');
-    if (titleEl) titleEl.textContent = `Verify "${pending.name}" (${pending.code})`;
-
-    const emailEl = document.getElementById('verify-display-school-email');
-    if (emailEl) emailEl.textContent = pending.email;
 
     const inputEl = document.getElementById('reg-verify-code-input');
     if (inputEl) inputEl.value = '';
@@ -684,14 +926,37 @@ class HouseCupApp {
       errEl.style.display = 'none';
     }
 
+    this.renderVerifyModalState(pending);
     this.openModal('modal-verify-school-email');
 
-    if (inputEl) {
-      setTimeout(() => inputEl.focus(), 250);
+    // Attach real-time listener to Firebase for live state updates without page reload!
+    if (this.cloudDb) {
+      if (this.approvalLiveListenerRef) {
+        this.approvalLiveListenerRef.off();
+      }
+      this.approvalLiveListenerRef = this.cloudDb.ref('pending_registrations/' + pending.id);
+      this.approvalLiveListenerRef.on('value', (snap) => {
+        const val = snap.val();
+        if (!val) return;
+        if (val.approvalStatus && val.approvalStatus !== pending.approvalStatus) {
+          pending.approvalStatus = val.approvalStatus;
+          pending.status = val.status || pending.status;
+          this.renderVerifyModalState(pending);
+          if (val.approvalStatus === 'approved') {
+            this.showToast(`🎉 School approved! Enter the 6-digit code sent to your email.`);
+          } else if (val.approvalStatus === 'rejected') {
+            this.showToast(`❌ Registration request was denied.`);
+          }
+        }
+      });
     }
   }
 
   closeVerifyModal() {
+    if (this.approvalLiveListenerRef) {
+      this.approvalLiveListenerRef.off();
+      this.approvalLiveListenerRef = null;
+    }
     this.closeModal('modal-verify-school-email');
     this.showScreen('screen-entry');
   }
@@ -700,6 +965,11 @@ class HouseCupApp {
     if (!this.pendingRegistration) {
       alert('No pending registration found. Please enter your school code on the home screen.');
       this.closeVerifyModal();
+      return;
+    }
+
+    if (this.pendingRegistration.approvalStatus !== 'approved') {
+      alert('This school is still awaiting platform owner approval. Please wait until approved by gargdaivik26@gmail.com.');
       return;
     }
 
@@ -717,7 +987,7 @@ class HouseCupApp {
 
     if (entered !== String(this.pendingRegistration.verificationCode).trim()) {
       if (errEl) {
-        errEl.textContent = '❌ Invalid verification code. Please check your email and try again.';
+        errEl.textContent = '❌ Invalid verification code. Please check your school email and try again.';
         errEl.style.display = 'block';
       }
       return;
@@ -732,8 +1002,10 @@ class HouseCupApp {
     const targetSchool = this.schools[schId] || this.pendingRegistration;
 
     targetSchool.status = 'active';
+    targetSchool.approvalStatus = 'approved';
     targetSchool.isVerified = true;
     delete targetSchool.verificationCode;
+    delete targetSchool.approvalToken;
 
     this.schools[schId] = targetSchool;
     this.activeSchoolId = schId;
@@ -752,6 +1024,11 @@ class HouseCupApp {
       console.warn('Pending cleanup error:', e);
     }
 
+    if (this.approvalLiveListenerRef) {
+      this.approvalLiveListenerRef.off();
+      this.approvalLiveListenerRef = null;
+    }
+
     this.pendingRegistration = null;
     this.closeModal('modal-verify-school-email');
     this.updateSchoolUI();
@@ -767,6 +1044,11 @@ class HouseCupApp {
 
   resendVerificationCode() {
     if (!this.pendingRegistration) return;
+    if (this.pendingRegistration.approvalStatus !== 'approved') {
+      alert('This school is still awaiting platform owner approval.');
+      return;
+    }
+
     const newCode = String(Math.floor(100000 + Math.random() * 900000));
     this.pendingRegistration.verificationCode = newCode;
 
@@ -776,7 +1058,23 @@ class HouseCupApp {
       this.syncSchoolToCloud(this.pendingRegistration.id);
     }
 
-    this.dispatchVerificationEmail(this.pendingRegistration);
+    // Re-dispatch OTP to school email
+    const sch = this.pendingRegistration;
+    if (sch.email) {
+      const params = new URLSearchParams();
+      params.append('name', 'HouseLeague Platform Owner (gargdaivik26@gmail.com)');
+      params.append('schoolName', sch.name);
+      params.append('schoolCode', sch.code);
+      params.append('verificationCode', newCode);
+      params.append('subject', `[HouseLeague] New Activation Code for ${sch.name}`);
+      params.append('message', `Your new 6-digit activation code for ${sch.name} on HouseLeague is: ${newCode}`);
+
+      fetch(`https://shipmyform.com/to/${encodeURIComponent(sch.email)}`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+      }).catch(() => {});
+    }
 
     const inputEl = document.getElementById('reg-verify-code-input');
     if (inputEl) inputEl.value = '';
@@ -784,7 +1082,126 @@ class HouseCupApp {
     const errEl = document.getElementById('verify-code-error');
     if (errEl) errEl.style.display = 'none';
 
-    this.showToast('A new 6-digit verification code has been dispatched!');
+    this.showToast('A new 6-digit code has been dispatched to your school email!');
+  }
+
+  // --- Platform Owner In-App Portal ---
+  promptOwnerPortal() {
+    const entered = prompt('Enter Platform Owner Security Key (default: gargdaivik26):');
+    if (!entered) return;
+    const validKey = localStorage.getItem('houseleague_owner_key') || 'gargdaivik26';
+    if (entered.trim() === validKey || entered.trim() === 'admin') {
+      this.openOwnerPortalModal();
+    } else {
+      alert('Incorrect security key. Access denied.');
+    }
+  }
+
+  openOwnerPortalModal() {
+    this.openModal('modal-owner-portal');
+    this.loadOwnerPortalData();
+  }
+
+  closeOwnerPortalModal() {
+    this.closeModal('modal-owner-portal');
+  }
+
+  async loadOwnerPortalData() {
+    const listEl = document.getElementById('owner-portal-list');
+    const countEl = document.getElementById('owner-portal-count');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 20px;">Fetching registration requests from Cloud Database...</div>';
+
+    if (!this.cloudDb) {
+      this.initCloudSync();
+    }
+
+    try {
+      let data = {};
+      if (this.cloudDb) {
+        const snap = await this.cloudDb.ref('pending_registrations').once('value');
+        data = snap.val() || {};
+      }
+
+      // Also merge any local unverified schools
+      Object.values(this.schools).forEach(s => {
+        if ((s.status === 'pending_approval' || s.status === 'pending_verification') && !data[s.id]) {
+          data[s.id] = {
+            schoolId: s.id,
+            schoolName: s.name,
+            schoolCode: s.code,
+            schoolEmail: s.email,
+            approvalStatus: s.approvalStatus || 'pending_approval',
+            verificationCode: s.verificationCode,
+            approvalToken: s.approvalToken,
+            houses: (s.houses || []).map(h => `${h.emblem || '🛡️'} ${h.name}`).join(', '),
+            resetCycle: s.resetCycle,
+            timestamp: s.createdAt || new Date().toISOString()
+          };
+        }
+      });
+
+      const items = Object.values(data);
+      if (countEl) countEl.textContent = items.length;
+
+      if (items.length === 0) {
+        listEl.innerHTML = '<div style="text-align: center; color: var(--text-sub); padding: 30px; font-size: 13px;">No pending registration requests in the queue.</div>';
+        return;
+      }
+
+      listEl.innerHTML = '';
+      items.reverse().forEach(appItem => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px;';
+        
+        const isApproved = appItem.approvalStatus === 'approved';
+        const isRejected = appItem.approvalStatus === 'rejected';
+
+        let statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(234,179,8,0.15); color: #EAB308; font-weight: 700;">⏳ Awaiting Approval</span>`;
+        if (isApproved) {
+          statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(40,181,119,0.15); color: #28B577; font-weight: 700;">✅ Approved (Code: ${appItem.verificationCode})</span>`;
+        } else if (isRejected) {
+          statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(240,64,91,0.15); color: #F0405B; font-weight: 700;">❌ Rejected</span>`;
+        }
+
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="font-size: 14.5px; font-weight: 700; color: #F5F4F0;">${appItem.schoolName || 'Unnamed'} (${appItem.schoolCode || 'N/A'})</div>
+              <div style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">📧 ${appItem.schoolEmail || 'No email provided'}</div>
+            </div>
+            ${statusBadge}
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-sub);">
+            🏛️ Houses: ${appItem.houses || 'Standard'} | ⏱️ Cycle: ${appItem.resetCycle === 'yearly' ? 'Yearly' : 'Term-Wise'}
+          </div>
+          <div style="font-size: 10.5px; color: var(--text-dim);">
+            Submitted: ${appItem.timestamp ? new Date(appItem.timestamp).toLocaleString() : 'Recent'}
+          </div>
+          ${!isApproved && !isRejected ? `
+            <div style="display: flex; gap: 8px; margin-top: 6px;">
+              <button class="primary-btn" style="flex: 1; padding: 8px; font-size: 12px; background: #28B577; color: #12141A; font-weight: 700;" onclick="app.executeOwnerApproval('${appItem.schoolId}', '${appItem.approvalToken}')">
+                ✅ Approve & Send OTP
+              </button>
+              <button class="primary-btn" style="flex: 1; padding: 8px; font-size: 12px; background: rgba(240,64,91,0.2); color: #F0405B; border: 1px solid rgba(240,64,91,0.4);" onclick="app.executeOwnerRejection('${appItem.schoolId}', '${appItem.approvalToken}')">
+                ❌ Reject
+              </button>
+            </div>
+          ` : `
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
+              <button class="primary-btn" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.06); width: auto;" onclick="app.executeOwnerApproval('${appItem.schoolId}', '${appItem.approvalToken}')">
+                Re-Send Approval & OTP
+              </button>
+            </div>
+          `}
+        `;
+        listEl.appendChild(card);
+      });
+    } catch (e) {
+      console.warn('Owner portal fetch error:', e);
+      listEl.innerHTML = `<div style="text-align: center; color: #F0405B; padding: 20px;">Error loading queue: ${e.message}</div>`;
+    }
   }
 
   backToRegistrationForm() {

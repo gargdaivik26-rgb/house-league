@@ -63,6 +63,11 @@
             <button class="primary-btn" style="background: rgba(244, 183, 64, 0.15); color: var(--accent-gold); border: 1px solid rgba(244, 183, 64, 0.35);" onclick="app.openRegisterSchoolModal()">
               ➕ Add / Register New School
             </button>
+
+            <!-- Platform Owner Portal Link -->
+            <div style="margin-top: 10px; text-align: center; font-size: 11px; color: var(--text-dim); cursor: pointer; text-decoration: underline;" onclick="app.promptOwnerPortal()">
+              🛡️ Platform Owner Portal (Review Requests)
+            </div>
           </div>
 
         </div>
@@ -665,47 +670,110 @@
       </div>
 
       <!-- ===================================================================
-           MODAL: VERIFY SCHOOL EMAIL (PERSISTENT — PREVENTS ACCIDENTAL DISMISSAL)
+           MODAL: VERIFY SCHOOL EMAIL & OWNER APPROVAL STATUS
            =================================================================== -->
       <div id="modal-verify-school-email" class="modal-overlay" style="backdrop-filter: blur(6px);">
-        <div class="modal-content" style="max-width: 440px;">
+        <div class="modal-content" style="max-width: 460px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div class="font-oswald" style="font-size: 19px; font-weight: 700;">📧 Verify School Registration</div>
+            <div class="font-oswald" style="font-size: 19px; font-weight: 700;">📧 School Registration Status</div>
             <div class="icon-btn" onclick="app.closeVerifyModal()" title="Close to School Entry Screen">✕</div>
           </div>
 
           <div style="text-align: center; padding: 6px 0 0;">
-            <div style="font-size: 38px; margin: 4px 0;">📩</div>
-            <div style="font-size: 15px; font-weight: 700; color: #F5F4F0;" id="verify-modal-school-name">
-              Verification Code Required
+            <div id="verify-modal-icon" style="font-size: 40px; margin: 4px 0;">⏳</div>
+            <div style="font-size: 16px; font-weight: 700; color: #F5F4F0;" id="verify-modal-school-name">
+              Registration Under Review
             </div>
-            <div style="font-size: 12px; color: var(--text-dim); line-height: 1.4; margin-top: 6px;">
-              This school is saved as <b>pending verification</b> in the database. Enter the 6-digit verification code to activate it and proceed:
-            </div>
-
-            <!-- Email Delivery Status Box -->
-            <div style="background: rgba(244, 183, 64, 0.08); border: 1px solid rgba(244, 183, 64, 0.25); border-radius: 10px; padding: 10px 12px; margin: 12px 0 10px; font-size: 11.5px; color: var(--accent-gold); text-align: left; line-height: 1.4;">
-              <div>🏫 <b>School Email:</b> <span id="verify-display-school-email" style="color: #F5F4F0;">-</span></div>
-              <div style="margin-top: 3px;">📬 <b>Alert Dispatched:</b> <span style="color: #F5F4F0;">gargdaivik26@gmail.com</span></div>
+            <div id="verify-modal-desc" style="font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin-top: 6px;">
+              Your application has been submitted to the platform administrator (<b>gargdaivik26@gmail.com</b>).
             </div>
 
-            <!-- 6-digit Code Input -->
-            <div style="margin: 12px 0 8px;">
-              <input type="text" id="reg-verify-code-input" class="input-field" placeholder="• • • • • •" maxlength="6" style="font-size: 26px; font-weight: 700; letter-spacing: 10px; text-align: center; height: 52px; background: #1B1E27; color: var(--accent-gold);" autocomplete="one-time-code" inputmode="numeric">
-              <div id="verify-code-error" class="error-text" style="display: none; margin-top: 6px;"></div>
+            <!-- Status Box -->
+            <div id="verify-modal-status-box" style="background: rgba(244, 183, 64, 0.08); border: 1px solid rgba(244, 183, 64, 0.25); border-radius: 10px; padding: 11px 14px; margin: 12px 0 10px; font-size: 12px; color: var(--accent-gold); text-align: left; line-height: 1.5;">
+              <div>🏫 <b>School Name:</b> <span id="verify-display-school-name-text" style="color: #F5F4F0;">-</span></div>
+              <div style="margin-top: 2px;">📧 <b>School Email:</b> <span id="verify-display-school-email" style="color: #F5F4F0;">-</span></div>
+              <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                <span id="verify-status-dot" class="sync-dot" style="background: #EAB308;"></span>
+                <b>Approval Status:</b> <span id="verify-display-approval-status" style="font-weight: 700; color: #EAB308;">⏳ Awaiting Owner Approval</span>
+              </div>
             </div>
 
-            <button class="primary-btn" onclick="app.submitVerificationCode()" style="padding: 13px; font-size: 14px; font-weight: 700; background: var(--accent-gold); color: #12141A; width: 100%;">
-              Verify & Launch School
-            </button>
+            <!-- STATE 1: PENDING APPROVAL VIEW -->
+            <div id="verify-section-pending" style="display: block; padding: 6px 0;">
+              <div style="background: rgba(47, 114, 224, 0.1); border: 1px solid rgba(47, 114, 224, 0.3); border-radius: 8px; padding: 10px 12px; font-size: 11.5px; color: #5B9BFF; text-align: left; line-height: 1.45; margin-bottom: 12px;">
+                ℹ️ To protect against unauthorized creation, registrations require approval from platform owner <b>gargdaivik26@gmail.com</b>. As soon as approved, a 6-digit activation OTP will be dispatched to your school email, and this window will automatically unlock.
+              </div>
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--text-dim); margin: 6px 0;">
+                <span class="sync-dot" style="background: #28B577;"></span> Live approval listener active (no refresh needed)
+              </div>
+            </div>
+
+            <!-- STATE 2: APPROVED / ENTER 6-DIGIT OTP VIEW -->
+            <div id="verify-section-approved" style="display: none; padding: 4px 0;">
+              <div style="font-size: 12px; color: #28B577; font-weight: 700; margin-bottom: 8px;">
+                ✅ Approved! Enter the 6-digit activation code sent to your school email:
+              </div>
+              <!-- 6-digit Code Input -->
+              <div style="margin: 6px 0 8px;">
+                <input type="text" id="reg-verify-code-input" class="input-field" placeholder="• • • • • •" maxlength="6" style="font-size: 26px; font-weight: 700; letter-spacing: 10px; text-align: center; height: 52px; background: #1B1E27; color: var(--accent-gold);" autocomplete="one-time-code" inputmode="numeric">
+                <div id="verify-code-error" class="error-text" style="display: none; margin-top: 6px;"></div>
+              </div>
+
+              <button class="primary-btn" onclick="app.submitVerificationCode()" style="padding: 13px; font-size: 14px; font-weight: 700; background: var(--accent-gold); color: #12141A; width: 100%;">
+                Verify & Launch School
+              </button>
+            </div>
+
+            <!-- STATE 3: REJECTED VIEW -->
+            <div id="verify-section-rejected" style="display: none; padding: 6px 0;">
+              <div style="background: rgba(240, 64, 91, 0.12); border: 1px solid rgba(240, 64, 91, 0.35); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: #F0405B; text-align: left; line-height: 1.5;">
+                <b>❌ Registration Denied</b><br>
+                This school registration request has been reviewed and denied by the platform owner (gargdaivik26@gmail.com).<br><br>
+                If you believe this was an error, please reach out directly to <b>gargdaivik26@gmail.com</b>.
+              </div>
+            </div>
 
             <!-- Actions row -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 11.5px; color: var(--text-dim);">
-              <span style="cursor: pointer; text-decoration: underline;" onclick="app.resendVerificationCode()">🔄 Resend Code</span>
-              <span style="cursor: pointer; color: var(--text-sub);" onclick="app.closeVerifyModal()">← Exit to School Code</span>
+              <span id="btn-verify-resend-link" style="cursor: pointer; text-decoration: underline; display: none;" onclick="app.resendVerificationCode()">🔄 Resend Code</span>
+              <span style="cursor: pointer; color: var(--text-sub); margin-left: auto;" onclick="app.closeVerifyModal()">← Exit to School Code</span>
             </div>
 
           </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: PLATFORM OWNER REVIEW PORTAL
+           =================================================================== -->
+      <div id="modal-owner-portal" class="modal-overlay" style="backdrop-filter: blur(6px);">
+        <div class="modal-content" style="max-width: 560px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="font-oswald" style="font-size: 19px; font-weight: 700;">🛡️ Platform Owner Portal</div>
+            <div class="icon-btn" onclick="app.closeOwnerPortalModal()">✕</div>
+          </div>
+          <div style="font-size: 12px; color: var(--text-dim); margin: 6px 0 12px; line-height: 1.4;">
+            Logged in as Platform Owner (<b>gargdaivik26@gmail.com</b>). Review pending school applications. Approving a request will automatically email the 6-digit OTP to the school's official email address.
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-size: 12.5px; font-weight: 700; color: var(--accent-gold);">Registration Applications (<span id="owner-portal-count">0</span>)</span>
+            <button class="primary-btn" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.loadOwnerPortalData()">🔄 Refresh Queue</button>
+          </div>
+          <div id="owner-portal-list" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+            <div style="text-align: center; color: var(--text-sub); padding: 20px;">Loading applications...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
+           MODAL: OWNER APPROVAL ACTION RESULT
+           =================================================================== -->
+      <div id="modal-owner-action-result" class="modal-overlay" style="backdrop-filter: blur(6px);">
+        <div class="modal-content" style="max-width: 440px; text-align: center;">
+          <div id="owner-action-icon" style="font-size: 44px; margin-bottom: 8px;">🎉</div>
+          <div id="owner-action-title" class="font-oswald" style="font-size: 20px; font-weight: 700; color: #F5F4F0; margin-bottom: 6px;">School Approved!</div>
+          <div id="owner-action-desc" style="font-size: 12.5px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px;"></div>
+          <button class="primary-btn" onclick="app.closeModal('modal-owner-action-result')" style="width: 100%;">Continue to App</button>
         </div>
       </div>
 
