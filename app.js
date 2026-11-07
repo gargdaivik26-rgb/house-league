@@ -51,6 +51,7 @@ class HouseCupApp {
     this.selectedPoints = 10;
     this.newHouseSelectedColor = '#E5354F';
     this.toastTimer = null;
+    this.pendingRegistration = null;
 
     // Cloud Realtime Sync State (Multi-School & Multi-Device Sync)
     this.cloudEnabled = false;
@@ -120,6 +121,7 @@ class HouseCupApp {
     if (!sch) return null;
     if (!sch.resetCycle) sch.resetCycle = 'yearly';
     if (!sch.motto) sch.motto = 'Honour, Excellence, Integrity';
+    sch.email = sch.email || '';
     sch.academicYear = sch.academicYear || (sch.term?.match(/(\d{4}-\d{2,4})/)?.[1] || '2026-27');
     sch.currentTermIndex = typeof sch.currentTermIndex === 'number' ? sch.currentTermIndex : ((sch.term || '').includes('Term 2') ? 2 : 1);
     if (!sch.term) {
@@ -352,6 +354,8 @@ class HouseCupApp {
     this.registerCycle = 'yearly';
     this.setRegisterCycle('yearly');
     document.getElementById('reg-school-name').value = '';
+    const emailInput = document.getElementById('reg-school-email');
+    if (emailInput) emailInput.value = '';
     document.getElementById('reg-school-motto').value = 'Honour, Excellence, Integrity';
     document.getElementById('reg-school-code').value = '';
     document.getElementById('reg-school-pin').value = '';
@@ -392,6 +396,7 @@ class HouseCupApp {
 
   submitSchoolRegistration() {
     const name = (document.getElementById('reg-school-name').value || '').trim();
+    const email = (document.getElementById('reg-school-email')?.value || '').trim();
     const motto = (document.getElementById('reg-school-motto').value || '').trim() || 'Honour, Excellence, Integrity';
     const code = (document.getElementById('reg-school-code').value || '').trim().toUpperCase();
     const pin = (document.getElementById('reg-school-pin').value || '').trim();
@@ -400,6 +405,22 @@ class HouseCupApp {
 
     if (!name || !code) {
       alert('Please enter both School Name and School Code.');
+      return;
+    }
+
+    // Mandatory School Official Email validation
+    if (!email) {
+      alert('School Official Email ID is mandatory. Please enter your official school email.');
+      const el = document.getElementById('reg-school-email');
+      if (el) el.focus();
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid official School Email ID (e.g. principal@school.edu or admin@school.com).');
+      const el = document.getElementById('reg-school-email');
+      if (el) el.focus();
       return;
     }
 
@@ -442,14 +463,18 @@ class HouseCupApp {
       return;
     }
 
-    // Save with the user's chosen Admin Code & custom houses!
-    this.schools[id] = {
+    // Generate 6-digit numeric verification code
+    const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
+
+    // Store pending registration (DO NOT create school yet!)
+    this.pendingRegistration = {
       id: id,
       name: name,
+      email: email,
       code: code,
       motto: motto,
       resetCycle: cycle,
-      adminPin: pin, // User decided!
+      adminPin: pin,
       academicYear: initialYear,
       currentTermIndex: 1,
       term: cycle === 'yearly' ? `Academic Year ${initialYear}` : `Term 1 (${initialYear})`,
@@ -461,19 +486,184 @@ class HouseCupApp {
       teachers: [{ username: 'admin', password: 'password1', displayName: 'School Admin' }],
       students: [],
       events: [],
-      archivedTerms: []
+      archivedTerms: [],
+      verificationCode: verificationCode,
+      createdAt: new Date().toISOString()
     };
 
-    this.activeSchoolId = id;
-    this.saveStorage();
+    // Dispatch verification email to gargdaivik26@gmail.com and school email
+    this.dispatchVerificationEmail(this.pendingRegistration);
+
+    // Close registration modal & open verification modal
     this.closeRegisterSchoolModal();
+    this.openVerifyModal(this.pendingRegistration);
+  }
+
+  // --- Email Verification Workflow & Dispatch ---
+  dispatchVerificationEmail(pending) {
+    // 1. Record in Firebase Realtime Database
+    try {
+      if (this.cloudDb) {
+        this.cloudDb.ref('pending_registrations/' + pending.id).set({
+          schoolName: pending.name,
+          schoolCode: pending.code,
+          schoolEmail: pending.email,
+          adminNotificationEmail: 'gargdaivik26@gmail.com',
+          verificationCode: pending.verificationCode,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (e) {
+      console.warn('Firebase pending record error:', e);
+    }
+
+    // 2. Dispatch notification email to gargdaivik26@gmail.com
+    try {
+      fetch('https://formsubmit.co/ajax/gargdaivik26@gmail.com', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          _subject: `New School Registration: ${pending.name} (${pending.code})`,
+          schoolName: pending.name,
+          schoolCode: pending.code,
+          officialSchoolEmail: pending.email,
+          verificationCode: pending.verificationCode,
+          adminPIN: pending.adminPin,
+          houses: pending.houses.map(h => h.name).join(', '),
+          message: `A new school has registered on HouseLeague. Verification Code: ${pending.verificationCode}. Verification required before school launch.`
+        })
+      }).catch(err => console.warn('FormSubmit notification error (non-blocking):', err));
+    } catch (e) {
+      console.warn('Email dispatch error:', e);
+    }
+  }
+
+  openVerifyModal(pending) {
+    const titleEl = document.getElementById('verify-modal-school-name');
+    if (titleEl) titleEl.textContent = `Verify "${pending.name}" (${pending.code})`;
+
+    const emailEl = document.getElementById('verify-display-school-email');
+    if (emailEl) emailEl.textContent = pending.email;
+
+    const inputEl = document.getElementById('reg-verify-code-input');
+    if (inputEl) inputEl.value = '';
+
+    const errEl = document.getElementById('verify-code-error');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.style.display = 'none';
+    }
+
+    const hintBadge = document.getElementById('verify-code-hint-badge');
+    if (hintBadge) hintBadge.textContent = pending.verificationCode;
+
+    this.openModal('modal-verify-school-email');
+
+    if (inputEl) {
+      setTimeout(() => inputEl.focus(), 250);
+    }
+  }
+
+  closeVerifyModal() {
+    this.closeModal('modal-verify-school-email');
+  }
+
+  submitVerificationCode() {
+    if (!this.pendingRegistration) {
+      alert('No pending registration found. Please register your school again.');
+      this.closeVerifyModal();
+      this.openRegisterSchoolModal();
+      return;
+    }
+
+    const inputEl = document.getElementById('reg-verify-code-input');
+    const entered = (inputEl ? inputEl.value : '').trim();
+    const errEl = document.getElementById('verify-code-error');
+
+    if (!entered) {
+      if (errEl) {
+        errEl.textContent = 'Please enter the 6-digit verification code.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (entered !== this.pendingRegistration.verificationCode) {
+      if (errEl) {
+        errEl.textContent = '❌ Invalid verification code. Please check your email and try again.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (errEl) {
+      errEl.style.display = 'none';
+    }
+
+    // Verification SUCCESS! Only now create and activate the school
+    const newSchool = { ...this.pendingRegistration };
+    const schId = newSchool.id;
+    delete newSchool.verificationCode;
+    delete newSchool.createdAt;
+
+    this.schools[schId] = newSchool;
+    this.activeSchoolId = schId;
+    this.saveStorage();
+
+    // Clean up pending registration in Firebase
+    try {
+      if (this.cloudDb) {
+        this.cloudDb.ref('pending_registrations/' + schId).remove();
+      }
+    } catch (e) {
+      console.warn('Pending cleanup error:', e);
+    }
+
+    this.pendingRegistration = null;
+    this.closeVerifyModal();
     this.updateSchoolUI();
     this.renderScoreboard();
     this.renderActivity();
     this.populateHouseFilters();
-    this.listenToSchoolCloud(id);
+    this.listenToSchoolCloud(schId);
+
+    // Transition to the School Login page!
     this.showScreen('screen-login');
-    this.showToast(`School created with ${houses.length} houses! Admin Code saved.`);
+    this.showToast(`School "${newSchool.name}" verified and launched successfully!`);
+  }
+
+  resendVerificationCode() {
+    if (!this.pendingRegistration) return;
+    const newCode = String(Math.floor(100000 + Math.random() * 900000));
+    this.pendingRegistration.verificationCode = newCode;
+
+    this.dispatchVerificationEmail(this.pendingRegistration);
+
+    const hintBadge = document.getElementById('verify-code-hint-badge');
+    if (hintBadge) hintBadge.textContent = newCode;
+
+    const inputEl = document.getElementById('reg-verify-code-input');
+    if (inputEl) inputEl.value = '';
+
+    const errEl = document.getElementById('verify-code-error');
+    if (errEl) errEl.style.display = 'none';
+
+    this.showToast('A new 6-digit verification code has been dispatched!');
+  }
+
+  backToRegistrationForm() {
+    this.closeVerifyModal();
+    if (this.pendingRegistration) {
+      const p = this.pendingRegistration;
+      document.getElementById('reg-school-name').value = p.name;
+      const em = document.getElementById('reg-school-email');
+      if (em) em.value = p.email;
+      document.getElementById('reg-school-motto').value = p.motto;
+      document.getElementById('reg-school-code').value = p.code;
+      document.getElementById('reg-school-pin').value = p.adminPin;
+      this.setRegisterCycle(p.resetCycle || 'yearly');
+    }
+    this.openModal('modal-register-school');
   }
 
   updateSchoolUI() {
@@ -1053,6 +1243,8 @@ class HouseCupApp {
     const sch = this.getActiveSchool();
     if (!sch) return;
     document.getElementById('admin-input-school-name').value = sch.name;
+    const emailEl = document.getElementById('admin-input-school-email');
+    if (emailEl) emailEl.value = sch.email || '';
     document.getElementById('admin-input-school-motto').value = sch.motto;
     document.getElementById('admin-input-school-cycle').value = sch.resetCycle || 'yearly';
     document.getElementById('admin-input-school-code').value = sch.code;
@@ -1064,6 +1256,10 @@ class HouseCupApp {
     if (!sch) return;
 
     sch.name = (document.getElementById('admin-input-school-name').value || '').trim() || sch.name;
+    const emailEl = document.getElementById('admin-input-school-email');
+    if (emailEl) {
+      sch.email = (emailEl.value || '').trim();
+    }
     sch.motto = (document.getElementById('admin-input-school-motto').value || '').trim() || sch.motto;
     sch.code = (document.getElementById('admin-input-school-code').value || '').trim().toUpperCase() || sch.code;
     
