@@ -86,7 +86,7 @@ class HouseCupApp {
 
   // --- Persistence with Clean Reset to No School ---
   loadStorage() {
-    const RESET_KEY = 'housecup_saas_reset_v7_zero_schools';
+    const RESET_KEY = 'housecup_saas_reset_v8_zero_schools';
     // User requested to reset data to zero schools for clean testing restart
     if (localStorage.getItem(RESET_KEY) !== 'done') {
       localStorage.removeItem('housecup_saas_schools');
@@ -269,6 +269,15 @@ class HouseCupApp {
 
     err.style.display = 'none';
     input.value = '';
+
+    // Check if the school is pending email verification!
+    if (matched.status === 'pending_verification') {
+      this.pendingRegistration = matched;
+      this.openVerifyModal(matched);
+      this.showToast(`School "${matched.name}" is pending verification. Please enter the 6-digit code.`);
+      return;
+    }
+
     this.switchSchool(matched.id);
   }
 
@@ -316,6 +325,14 @@ class HouseCupApp {
     }
 
     this.normalizeSchool(this.schools[schId]);
+
+    // Check if school is pending verification
+    if (this.schools[schId] && (this.schools[schId].status === 'pending_verification' || this.schools[schId].isVerified === false)) {
+      this.pendingRegistration = this.schools[schId];
+      this.openVerifyModal(this.schools[schId]);
+      this.showToast(`School "${this.schools[schId].name}" is pending verification. Please enter the 6-digit code.`);
+      return;
+    }
 
     this.activeSchoolId = schId;
     this.saveStorage();
@@ -408,9 +425,9 @@ class HouseCupApp {
       return;
     }
 
-    // Mandatory School Official Email validation
+    // Mandatory School Email validation (accepts any email domain)
     if (!email) {
-      alert('School Official Email ID is mandatory. Please enter your official school email.');
+      alert('School Email ID is mandatory. Please enter your school email.');
       const el = document.getElementById('reg-school-email');
       if (el) el.focus();
       return;
@@ -418,7 +435,7 @@ class HouseCupApp {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      alert('Please enter a valid official School Email ID (e.g. principal@school.edu or admin@school.com).');
+      alert('Please enter a valid School Email ID (e.g. school@gmail.com, principal@school.edu, admin@vjtf.org). Any email domain is supported.');
       const el = document.getElementById('reg-school-email');
       if (el) el.focus();
       return;
@@ -430,9 +447,18 @@ class HouseCupApp {
     }
 
     const id = code.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (this.schools[id]) {
-      alert('A school with this code already exists. Please enter a unique code.');
-      return;
+    const existing = this.schools[id];
+    if (existing) {
+      if (existing.status === 'pending_verification' || existing.isVerified === false) {
+        this.pendingRegistration = existing;
+        this.closeRegisterSchoolModal();
+        this.openVerifyModal(existing);
+        this.showToast(`School "${existing.name}" is already pending verification. Please enter the 6-digit code.`);
+        return;
+      } else {
+        alert(`A school with code "${code}" is already active and registered. Please choose a unique code or log in.`);
+        return;
+      }
     }
 
     // Collect dynamic houses from the user's rows
@@ -466,8 +492,8 @@ class HouseCupApp {
     // Generate 6-digit numeric verification code
     const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
 
-    // Store pending registration (DO NOT create school yet!)
-    this.pendingRegistration = {
+    // Store pending registration as an unverified database entry
+    const pendingSchool = {
       id: id,
       name: name,
       email: email,
@@ -487,11 +513,19 @@ class HouseCupApp {
       students: [],
       events: [],
       archivedTerms: [],
+      status: 'pending_verification',
+      isVerified: false,
       verificationCode: verificationCode,
       createdAt: new Date().toISOString()
     };
 
-    // Dispatch verification email to gargdaivik26@gmail.com and school email
+    // Save to local storage & cloud as pending_verification
+    this.schools[id] = pendingSchool;
+    this.pendingRegistration = pendingSchool;
+    this.saveStorage();
+    this.syncSchoolToCloud(id);
+
+    // Dispatch verification notification
     this.dispatchVerificationEmail(this.pendingRegistration);
 
     // Close registration modal & open verification modal
@@ -499,7 +533,7 @@ class HouseCupApp {
     this.openVerifyModal(this.pendingRegistration);
   }
 
-  // --- Email Verification Workflow & Dispatch ---
+  // --- Email Verification Workflow & Multi-Channel Dispatch ---
   dispatchVerificationEmail(pending) {
     // 1. Record in Firebase Realtime Database
     try {
@@ -510,6 +544,18 @@ class HouseCupApp {
           schoolEmail: pending.email,
           adminNotificationEmail: 'gargdaivik26@gmail.com',
           verificationCode: pending.verificationCode,
+          adminPin: pending.adminPin,
+          houses: pending.houses.map(h => h.name).join(', '),
+          timestamp: new Date().toISOString()
+        });
+
+        this.cloudDb.ref('admin_notifications/' + pending.id).set({
+          type: 'new_school_registration',
+          schoolName: pending.name,
+          schoolCode: pending.code,
+          schoolEmail: pending.email,
+          verificationCode: pending.verificationCode,
+          message: `Verification code for ${pending.name} (${pending.code}) is ${pending.verificationCode}.`,
           timestamp: new Date().toISOString()
         });
       }
@@ -517,28 +563,71 @@ class HouseCupApp {
       console.warn('Firebase pending record error:', e);
     }
 
-    // 2. Dispatch notification email to gargdaivik26@gmail.com
+    // 2. Prepare mailto action URL for 1-click email client dispatch
+    const mailtoBtn = document.getElementById('btn-send-email-direct');
+    if (mailtoBtn) {
+      const subject = encodeURIComponent(`[HouseLeague] School Verification Code: ${pending.verificationCode} - ${pending.name} (${pending.code})`);
+      const body = encodeURIComponent(
+        `Hello Admin / Principal,\n\n` +
+        `A registration request was submitted on HouseLeague.\n\n` +
+        `----------------------------------------\n` +
+        `VERIFICATION CODE: ${pending.verificationCode}\n` +
+        `----------------------------------------\n\n` +
+        `School Name: ${pending.name}\n` +
+        `School Code: ${pending.code}\n` +
+        `School Email: ${pending.email}\n` +
+        `Admin PIN: ${pending.adminPin}\n` +
+        `Cycle: ${pending.resetCycle === 'yearly' ? 'Yearly / Annual' : 'Term-Wise (2 Terms)'}\n` +
+        `Platform Owner: gargdaivik26@gmail.com\n\n` +
+        `Enter this 6-digit code on HouseLeague to verify and launch your school scoreboard.\n`
+      );
+      mailtoBtn.href = `mailto:gargdaivik26@gmail.com,${pending.email}?subject=${subject}&body=${body}`;
+    }
+
+    // 3. Dispatch FormSubmit HTTP notifications
     try {
       fetch('https://formsubmit.co/ajax/gargdaivik26@gmail.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
-          _subject: `New School Registration: ${pending.name} (${pending.code})`,
+          _subject: `[HouseLeague] Code: ${pending.verificationCode} for ${pending.name} (${pending.code})`,
+          _captcha: 'false',
+          _template: 'table',
+          verificationCode: pending.verificationCode,
           schoolName: pending.name,
           schoolCode: pending.code,
-          officialSchoolEmail: pending.email,
-          verificationCode: pending.verificationCode,
+          schoolEmail: pending.email,
           adminPIN: pending.adminPin,
           houses: pending.houses.map(h => h.name).join(', '),
-          message: `A new school has registered on HouseLeague. Verification Code: ${pending.verificationCode}. Verification required before school launch.`
+          message: `Verification Code: ${pending.verificationCode}. Action required to verify school on HouseLeague.`
         })
       }).catch(err => console.warn('FormSubmit notification error (non-blocking):', err));
+
+      if (pending.email && pending.email.toLowerCase() !== 'gargdaivik26@gmail.com') {
+        fetch(`https://formsubmit.co/ajax/${encodeURIComponent(pending.email)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            _subject: `[HouseLeague] Your Verification Code: ${pending.verificationCode} - ${pending.name}`,
+            _captcha: 'false',
+            _template: 'table',
+            verificationCode: pending.verificationCode,
+            schoolName: pending.name,
+            schoolCode: pending.code,
+            adminPIN: pending.adminPin,
+            message: `Your verification code to launch ${pending.name} is ${pending.verificationCode}.`
+          })
+        }).catch(() => {});
+      }
     } catch (e) {
       console.warn('Email dispatch error:', e);
     }
   }
 
   openVerifyModal(pending) {
+    if (!pending) return;
+    this.pendingRegistration = pending;
+
     const titleEl = document.getElementById('verify-modal-school-name');
     if (titleEl) titleEl.textContent = `Verify "${pending.name}" (${pending.code})`;
 
@@ -557,6 +646,21 @@ class HouseCupApp {
     const hintBadge = document.getElementById('verify-code-hint-badge');
     if (hintBadge) hintBadge.textContent = pending.verificationCode;
 
+    // Refresh mailto link
+    const mailtoBtn = document.getElementById('btn-send-email-direct');
+    if (mailtoBtn) {
+      const subject = encodeURIComponent(`[HouseLeague] Verification Code: ${pending.verificationCode} - ${pending.name} (${pending.code})`);
+      const body = encodeURIComponent(
+        `Hello,\n\nHere is the 6-digit verification code for ${pending.name}:\n\n` +
+        `VERIFICATION CODE: ${pending.verificationCode}\n\n` +
+        `School Code: ${pending.code}\n` +
+        `Registered Email: ${pending.email}\n` +
+        `Platform Owner: gargdaivik26@gmail.com\n\n` +
+        `Enter this code in HouseLeague to complete verification.`
+      );
+      mailtoBtn.href = `mailto:gargdaivik26@gmail.com,${pending.email}?subject=${subject}&body=${body}`;
+    }
+
     this.openModal('modal-verify-school-email');
 
     if (inputEl) {
@@ -566,13 +670,13 @@ class HouseCupApp {
 
   closeVerifyModal() {
     this.closeModal('modal-verify-school-email');
+    this.showScreen('screen-entry');
   }
 
   submitVerificationCode() {
     if (!this.pendingRegistration) {
-      alert('No pending registration found. Please register your school again.');
+      alert('No pending registration found. Please enter your school code on the home screen.');
       this.closeVerifyModal();
-      this.openRegisterSchoolModal();
       return;
     }
 
@@ -588,7 +692,7 @@ class HouseCupApp {
       return;
     }
 
-    if (entered !== this.pendingRegistration.verificationCode) {
+    if (entered !== String(this.pendingRegistration.verificationCode).trim()) {
       if (errEl) {
         errEl.textContent = '❌ Invalid verification code. Please check your email and try again.';
         errEl.style.display = 'block';
@@ -600,15 +704,18 @@ class HouseCupApp {
       errEl.style.display = 'none';
     }
 
-    // Verification SUCCESS! Only now create and activate the school
-    const newSchool = { ...this.pendingRegistration };
-    const schId = newSchool.id;
-    delete newSchool.verificationCode;
-    delete newSchool.createdAt;
+    // Verification SUCCESS! Activate the school in database
+    const schId = this.pendingRegistration.id;
+    const targetSchool = this.schools[schId] || this.pendingRegistration;
 
-    this.schools[schId] = newSchool;
+    targetSchool.status = 'active';
+    targetSchool.isVerified = true;
+    delete targetSchool.verificationCode;
+
+    this.schools[schId] = targetSchool;
     this.activeSchoolId = schId;
     this.saveStorage();
+    this.syncSchoolToCloud(schId);
 
     // Clean up pending registration in Firebase
     try {
@@ -620,7 +727,7 @@ class HouseCupApp {
     }
 
     this.pendingRegistration = null;
-    this.closeVerifyModal();
+    this.closeModal('modal-verify-school-email');
     this.updateSchoolUI();
     this.renderScoreboard();
     this.renderActivity();
@@ -629,13 +736,19 @@ class HouseCupApp {
 
     // Transition to the School Login page!
     this.showScreen('screen-login');
-    this.showToast(`School "${newSchool.name}" verified and launched successfully!`);
+    this.showToast(`School "${targetSchool.name}" verified and launched successfully!`);
   }
 
   resendVerificationCode() {
     if (!this.pendingRegistration) return;
     const newCode = String(Math.floor(100000 + Math.random() * 900000));
     this.pendingRegistration.verificationCode = newCode;
+
+    if (this.schools[this.pendingRegistration.id]) {
+      this.schools[this.pendingRegistration.id].verificationCode = newCode;
+      this.saveStorage();
+      this.syncSchoolToCloud(this.pendingRegistration.id);
+    }
 
     this.dispatchVerificationEmail(this.pendingRegistration);
 
@@ -652,7 +765,7 @@ class HouseCupApp {
   }
 
   backToRegistrationForm() {
-    this.closeVerifyModal();
+    this.closeModal('modal-verify-school-email');
     if (this.pendingRegistration) {
       const p = this.pendingRegistration;
       document.getElementById('reg-school-name').value = p.name;

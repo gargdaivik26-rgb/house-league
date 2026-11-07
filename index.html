@@ -621,8 +621,8 @@
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Name *</label>
           <input type="text" id="reg-school-name" class="input-field" placeholder="School Name" required>
 
-          <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">Official School Email ID *</label>
-          <input type="email" id="reg-school-email" class="input-field" placeholder="e.g. principal@school.edu or admin@school.com" required autocomplete="email">
+          <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Email ID *</label>
+          <input type="email" id="reg-school-email" class="input-field" placeholder="School Email (any email, e.g. school@gmail.com, admin@vjtf.org)" required autocomplete="email">
 
           <label style="font-size: 11.5px; color: var(--text-sub); text-transform: uppercase;">School Motto / Tagline</label>
           <input type="text" id="reg-school-motto" class="input-field" placeholder="Honour, Excellence, Integrity">
@@ -665,32 +665,37 @@
       </div>
 
       <!-- ===================================================================
-           MODAL: VERIFY SCHOOL EMAIL (MANDATORY VERIFICATION CODE)
+           MODAL: VERIFY SCHOOL EMAIL (PERSISTENT — PREVENTS ACCIDENTAL DISMISSAL)
            =================================================================== -->
-      <div id="modal-verify-school-email" class="modal-overlay" onclick="if(event.target===this) app.closeVerifyModal()">
+      <div id="modal-verify-school-email" class="modal-overlay" style="backdrop-filter: blur(6px);">
         <div class="modal-content" style="max-width: 440px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div class="font-oswald" style="font-size: 19px; font-weight: 700;">📧 Verify School Registration</div>
-            <div class="icon-btn" onclick="app.closeVerifyModal()">✕</div>
+            <div class="icon-btn" onclick="app.closeVerifyModal()" title="Close to School Entry Screen">✕</div>
           </div>
 
           <div style="text-align: center; padding: 6px 0 0;">
             <div style="font-size: 38px; margin: 4px 0;">📩</div>
             <div style="font-size: 15px; font-weight: 700; color: #F5F4F0;" id="verify-modal-school-name">
-              Verification Code Sent
+              Verification Code Required
             </div>
             <div style="font-size: 12px; color: var(--text-dim); line-height: 1.4; margin-top: 6px;">
-              A 6-digit verification code has been dispatched. Enter the code received over school email to verify and launch your school:
+              This school is saved as <b>pending verification</b> in the database. Enter the 6-digit verification code to activate it and proceed:
             </div>
 
             <!-- Email Delivery Status Box -->
-            <div style="background: rgba(244, 183, 64, 0.08); border: 1px solid rgba(244, 183, 64, 0.25); border-radius: 10px; padding: 10px 12px; margin: 12px 0 10px; font-size: 11.5px; color: var(--accent-gold); text-align: left; line-height: 1.4;">
+            <div style="background: rgba(244, 183, 64, 0.08); border: 1px solid rgba(244, 183, 64, 0.25); border-radius: 10px; padding: 10px 12px; margin: 12px 0 8px; font-size: 11.5px; color: var(--accent-gold); text-align: left; line-height: 1.4;">
               <div>🏫 <b>School Email:</b> <span id="verify-display-school-email" style="color: #F5F4F0;">-</span></div>
               <div style="margin-top: 3px;">📬 <b>Alert Dispatched:</b> <span style="color: #F5F4F0;">gargdaivik26@gmail.com</span></div>
             </div>
 
+            <!-- One-Click Mail App Opener -->
+            <a id="btn-send-email-direct" href="#" target="_blank" class="primary-btn" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 12px; font-size: 12px; background: rgba(47, 114, 224, 0.15); color: #5B9BFF; border: 1px solid rgba(47, 114, 224, 0.35); text-decoration: none; margin-bottom: 10px; border-radius: 8px;">
+              ✉️ Open in Gmail / Mail App (Send Code Direct)
+            </a>
+
             <!-- 6-digit Code Input -->
-            <div style="margin: 14px 0 8px;">
+            <div style="margin: 8px 0;">
               <input type="text" id="reg-verify-code-input" class="input-field" placeholder="• • • • • •" maxlength="6" style="font-size: 26px; font-weight: 700; letter-spacing: 10px; text-align: center; height: 52px; background: #1B1E27; color: var(--accent-gold);" autocomplete="one-time-code" inputmode="numeric">
               <div id="verify-code-error" class="error-text" style="display: none; margin-top: 6px;"></div>
             </div>
@@ -702,12 +707,12 @@
             <!-- Actions row -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 11.5px; color: var(--text-dim);">
               <span style="cursor: pointer; text-decoration: underline;" onclick="app.resendVerificationCode()">🔄 Resend Code</span>
-              <span style="cursor: pointer; color: var(--text-sub);" onclick="app.backToRegistrationForm()">← Back to Edit</span>
+              <span style="cursor: pointer; color: var(--text-sub);" onclick="app.closeVerifyModal()">← Exit to School Code</span>
             </div>
 
             <!-- Test / Fast-verification Hint Helper -->
             <div style="margin-top: 12px; padding: 6px 10px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.12); border-radius: 8px; font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between; align-items: center;">
-              <span>Test / Owner Code:</span>
+              <span>Platform Owner Code:</span>
               <span id="verify-code-hint-badge" style="font-family: monospace; font-weight: 700; color: #28B577; background: rgba(40,181,119,0.12); padding: 2px 8px; border-radius: 4px; cursor: pointer;" onclick="document.getElementById('reg-verify-code-input').value = this.textContent; app.submitVerificationCode();" title="Click to auto-fill code"></span>
             </div>
 
