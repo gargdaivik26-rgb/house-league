@@ -65,8 +65,8 @@
             </button>
 
             <!-- Platform Owner Portal Link -->
-            <div style="margin-top: 10px; text-align: center; font-size: 11px; color: var(--text-dim); cursor: pointer; text-decoration: underline;" onclick="app.promptOwnerPortal()">
-              🛡️ Platform Owner Portal (Review Requests)
+            <div id="btn-owner-portal-link" style="margin-top: 10px; text-align: center; font-size: 11.5px; color: var(--text-dim); cursor: pointer; text-decoration: underline; display: flex; align-items: center; justify-content: center; gap: 5px;" onclick="app.promptOwnerPortal()">
+              🛡️ Platform Owner Portal (Review Requests) <span id="owner-pending-badge" style="display: none; background: #EAB308; color: #12141A; padding: 2px 7px; border-radius: 10px; font-weight: 700; font-size: 10px;">0 New</span>
             </div>
           </div>
 
@@ -744,17 +744,64 @@
       </div>
 
       <!-- ===================================================================
+           MODAL: PLATFORM OWNER SECURITY KEY (Clean in-app unlock dialog)
+           =================================================================== -->
+      <div id="modal-owner-key" class="modal-overlay" onclick="if(event.target===this) app.closeModal('modal-owner-key')">
+        <div class="modal-content" style="max-width: 390px; text-align: center;">
+          <div style="font-size: 38px; margin-bottom: 6px;">🛡️</div>
+          <div class="font-oswald" style="font-size: 19px; font-weight: 700; color: #F5F4F0; margin-bottom: 6px;">Platform Owner Portal</div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.4;">
+            Enter your Platform Owner Security Key to access pending school registration reviews:
+          </div>
+
+          <div class="password-field-wrapper" style="margin-bottom: 8px;">
+            <input type="password" id="input-owner-security-key" class="input-field" placeholder="Enter Security Key" onkeydown="if(event.key==='Enter') app.verifyOwnerKey()">
+            <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('input-owner-security-key', this)" title="Show Key">👁️</button>
+          </div>
+          <div id="owner-key-error" class="error-text" style="display: none; margin-bottom: 10px;"></div>
+
+          <div style="display: flex; gap: 8px; margin-top: 12px;">
+            <button type="button" class="primary-btn" style="flex: 1; background: rgba(255,255,255,0.08); color: var(--text-sub);" onclick="app.closeModal('modal-owner-key')">Cancel</button>
+            <button type="button" class="primary-btn" style="flex: 1; background: var(--accent-gold); color: #12141A; font-weight: 700;" onclick="app.verifyOwnerKey()">Unlock</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================
            MODAL: PLATFORM OWNER REVIEW PORTAL
            =================================================================== -->
       <div id="modal-owner-portal" class="modal-overlay" style="backdrop-filter: blur(6px);">
-        <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-content" style="max-width: 580px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div class="font-oswald" style="font-size: 19px; font-weight: 700;">🛡️ Platform Owner Portal</div>
             <div class="icon-btn" onclick="app.closeOwnerPortalModal()">✕</div>
           </div>
-          <div style="font-size: 12px; color: var(--text-dim); margin: 6px 0 12px; line-height: 1.4;">
-            Logged in as Platform Owner (<b>gargdaivik26@gmail.com</b>). Review pending school applications. Approving a request will automatically email the 6-digit OTP to the school's official email address.
+          <div style="font-size: 12px; color: var(--text-dim); margin: 6px 0 10px; line-height: 1.4;">
+            Logged in as Platform Owner (<b>gargdaivik26@gmail.com</b>). Review pending school applications. Approving a request reveals their 6-digit OTP and provides 1-click dispatch to the school.
           </div>
+
+          <!-- Optional EmailJS Automation Settings Card -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 9px; padding: 8px 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="app.toggleEmailJsSettings()">
+              <span style="font-size: 11.5px; font-weight: 600; color: var(--accent-gold);">⚙️ Automated Email Dispatch (EmailJS - Optional)</span>
+              <span id="emailjs-toggle-arrow" style="font-size: 11px; color: var(--text-sub);">▼ Configure</span>
+            </div>
+            <div id="emailjs-settings-panel" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11.5px;">
+              <div style="color: var(--text-dim); margin-bottom: 6px; line-height: 1.35;">
+                Connect EmailJS to automatically send OTPs from <b>gargdaivik26@gmail.com</b> without opening Gmail:
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="text" id="cfg-emailjs-public-key" class="input-field" placeholder="EmailJS Public Key">
+                <input type="text" id="cfg-emailjs-service-id" class="input-field" placeholder="EmailJS Service ID (e.g. service_gmail)">
+                <input type="text" id="cfg-emailjs-template-id" class="input-field" placeholder="EmailJS Template ID (e.g. template_otp)">
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="primary-btn" style="flex: 1; padding: 6px; font-size: 11px; background: var(--accent-gold); color: #12141A; font-weight: 700;" onclick="app.saveEmailJsConfig()">💾 Save EmailJS Keys</button>
+                  <button type="button" class="primary-btn" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.testEmailJsConfig()">🧪 Send Test Email</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="font-size: 12.5px; font-weight: 700; color: var(--accent-gold);">Registration Applications (<span id="owner-portal-count">0</span>)</span>
             <button class="primary-btn" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.loadOwnerPortalData()">🔄 Refresh Queue</button>
@@ -769,11 +816,31 @@
            MODAL: OWNER APPROVAL ACTION RESULT
            =================================================================== -->
       <div id="modal-owner-action-result" class="modal-overlay" style="backdrop-filter: blur(6px);">
-        <div class="modal-content" style="max-width: 440px; text-align: center;">
-          <div id="owner-action-icon" style="font-size: 44px; margin-bottom: 8px;">🎉</div>
-          <div id="owner-action-title" class="font-oswald" style="font-size: 20px; font-weight: 700; color: #F5F4F0; margin-bottom: 6px;">School Approved!</div>
-          <div id="owner-action-desc" style="font-size: 12.5px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px;"></div>
-          <button class="primary-btn" onclick="app.closeModal('modal-owner-action-result')" style="width: 100%;">Continue to App</button>
+        <div class="modal-content" style="max-width: 460px; text-align: center;">
+          <div id="owner-action-icon" style="font-size: 42px; margin-bottom: 6px;">🎉</div>
+          <div id="owner-action-title" class="font-oswald" style="font-size: 20px; font-weight: 700; color: #28B577; margin-bottom: 6px;">School Approved!</div>
+          <div id="owner-action-desc" style="font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin-bottom: 12px;"></div>
+
+          <!-- Highlighted OTP Box -->
+          <div id="owner-action-otp-box" style="background: rgba(244, 183, 64, 0.08); border: 1px dashed rgba(244, 183, 64, 0.4); border-radius: 10px; padding: 12px; margin: 10px 0 16px;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-sub); letter-spacing: 1px;">6-Digit Activation Code (OTP)</div>
+            <div id="owner-action-otp-code" style="font-size: 28px; font-weight: 800; letter-spacing: 6px; color: var(--accent-gold); margin: 4px 0;">------</div>
+            <div style="font-size: 11.5px; color: var(--text-dim);">Share this OTP with the school administrator to activate their scoreboard.</div>
+          </div>
+
+          <!-- Action buttons for the owner -->
+          <div id="owner-action-buttons-box" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+            <button id="btn-owner-send-gmail" class="primary-btn" style="background: #2F72E0; color: #FFF; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px;" onclick="app.triggerCurrentGmailComposer()">
+              ✉️ Send OTP to School via Gmail (gargdaivik26@gmail.com)
+            </button>
+            <button class="primary-btn" style="background: rgba(255,255,255,0.08); color: #F5F4F0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px;" onclick="app.copyCurrentActivationMessage()">
+              📋 Copy Activation Message & OTP to Clipboard
+            </button>
+          </div>
+
+          <button class="primary-btn" onclick="app.closeModal('modal-owner-action-result')" style="width: 100%; background: transparent; border: 1px solid var(--border-light); color: var(--text-sub); font-size: 12px; padding: 8px;">
+            Done / Close
+          </button>
         </div>
       </div>
 
@@ -1002,6 +1069,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <script src="app.js?v=7.0"></script>
+  <!-- EmailJS SDK for browser-direct email dispatch -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+  <script src="app.js?v=8.0"></script>
 </body>
 </html>

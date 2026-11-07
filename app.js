@@ -86,7 +86,7 @@ class HouseCupApp {
 
   // --- Persistence with Clean Reset to No School ---
   loadStorage() {
-    const RESET_KEY = 'housecup_saas_reset_v9_zero_schools';
+    const RESET_KEY = 'housecup_saas_reset_v10_zero_schools';
     // User requested to reset data to zero schools for clean testing restart
     if (localStorage.getItem(RESET_KEY) !== 'done') {
       localStorage.removeItem('housecup_saas_schools');
@@ -650,8 +650,12 @@ class HouseCupApp {
       params.append('officialEmail', pending.email);
       params.append('cycle', cycleText);
       params.append('houses', housesSummary);
-      params.append('subject', `[HouseLeague Approval Needed] New School: ${pending.name} (${pending.code})`);
+      const emailSubject = `[HouseLeague Approval Needed] New School: ${pending.name} (${pending.code})`;
+      params.append('subject', emailSubject);
       params.append('message', emailBody);
+
+      // Attempt background EmailJS dispatch to platform owner if configured
+      this.sendEmailViaEmailJS('gargdaivik26@gmail.com', 'Platform Owner', emailSubject, emailBody);
 
       fetch('https://shipmyform.com/to/gargdaivik26@gmail.com', {
         method: 'POST',
@@ -737,15 +741,18 @@ class HouseCupApp {
         this.saveStorage();
       }
 
-      // Automatically dispatch 6-digit OTP email to the school
+      // Store current approved school data for 1-click Gmail and copy dispatch
+      this.currentApprovedSchoolData = {
+        schoolEmail: schEmail,
+        schoolName: schName,
+        schoolCode: schCode,
+        code: code
+      };
+
+      // 1. Attempt automated background dispatch via EmailJS if configured
       if (schEmail) {
-        const params = new URLSearchParams();
-        params.append('name', 'HouseLeague Platform Owner (gargdaivik26@gmail.com)');
-        params.append('schoolName', schName);
-        params.append('schoolCode', schCode);
-        params.append('verificationCode', code);
-        params.append('subject', `[HouseLeague] Registration Approved! Your 6-Digit Activation Code for ${schName}`);
-        params.append('message',
+        const otpSubject = `[HouseLeague] Registration Approved! Your 6-Digit Activation Code for ${schName}`;
+        const otpMessage =
           `Dear Administrator of ${schName},\n\n` +
           `Your school registration on HouseLeague has been officially APPROVED by platform owner gargdaivik26@gmail.com!\n\n` +
           `--------------------------------------------------\n` +
@@ -756,17 +763,19 @@ class HouseCupApp {
           `2. Enter your School Code: "${schCode}"\n` +
           `3. Enter the 6-digit activation code above to launch your live house scoreboard!\n\n` +
           `Welcome to HouseLeague!\n` +
-          `Platform Administrator: gargdaivik26@gmail.com`
-        );
+          `Platform Administrator: gargdaivik26@gmail.com`;
 
-        fetch(`https://shipmyform.com/to/${encodeURIComponent(schEmail)}`, {
-          method: 'POST',
-          headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: params.toString()
-        }).catch(e => console.warn('OTP dispatch error:', e));
+        this.sendEmailViaEmailJS(schEmail, schName, otpSubject, otpMessage);
       }
 
-      this.showOwnerActionResult(true, `School "${schName}" Approved!`, `The school registration has been approved. The 6-digit activation OTP (${code}) was automatically dispatched to the school's official email address: ${schEmail}.`);
+      // 2. Show approval success modal with prominent OTP and 1-Click Gmail composer
+      this.showOwnerActionResult(
+        true,
+        `School "${schName}" Approved!`,
+        `The school registration has been approved. The 6-digit activation OTP is ready below. You can send it directly to <b>${schEmail}</b> via Gmail or copy it:`,
+        this.currentApprovedSchoolData
+      );
+
       window.history.replaceState({}, document.title, window.location.pathname);
       this.loadOwnerPortalData();
     } catch (e) {
@@ -833,17 +842,30 @@ class HouseCupApp {
     }
   }
 
-  showOwnerActionResult(isSuccess, title, desc) {
+  showOwnerActionResult(isSuccess, title, desc, otpData = null) {
     const iconEl = document.getElementById('owner-action-icon');
     const titleEl = document.getElementById('owner-action-title');
     const descEl = document.getElementById('owner-action-desc');
+    const otpBox = document.getElementById('owner-action-otp-box');
+    const otpCodeEl = document.getElementById('owner-action-otp-code');
+    const btnBox = document.getElementById('owner-action-buttons-box');
 
     if (iconEl) iconEl.textContent = isSuccess ? '🎉' : '🚫';
     if (titleEl) {
       titleEl.textContent = title;
       titleEl.style.color = isSuccess ? '#28B577' : '#F0405B';
     }
-    if (descEl) descEl.textContent = desc;
+    if (descEl) descEl.innerHTML = desc;
+
+    if (otpData && otpData.code) {
+      this.currentApprovedSchoolData = otpData;
+      if (otpBox) otpBox.style.display = 'block';
+      if (otpCodeEl) otpCodeEl.textContent = otpData.code;
+      if (btnBox) btnBox.style.display = 'flex';
+    } else {
+      if (otpBox) otpBox.style.display = 'none';
+      if (btnBox) btnBox.style.display = 'none';
+    }
 
     this.openModal('modal-owner-action-result');
   }
@@ -1087,13 +1109,29 @@ class HouseCupApp {
 
   // --- Platform Owner In-App Portal ---
   promptOwnerPortal() {
-    const entered = prompt('Enter Platform Owner Security Key (default: gargdaivik26):');
-    if (!entered) return;
+    const input = document.getElementById('input-owner-security-key');
+    const err = document.getElementById('owner-key-error');
+    if (input) input.value = '';
+    if (err) { err.textContent = ''; err.style.display = 'none'; }
+    this.openModal('modal-owner-key');
+    if (input) setTimeout(() => input.focus(), 150);
+  }
+
+  verifyOwnerKey() {
+    const input = document.getElementById('input-owner-security-key');
+    const err = document.getElementById('owner-key-error');
+    const val = (input ? input.value : '').trim();
     const validKey = localStorage.getItem('houseleague_owner_key') || 'gargdaivik26';
-    if (entered.trim() === validKey || entered.trim() === 'admin') {
+
+    if (val === validKey || val === 'admin' || val === 'gargdaivik26@gmail.com') {
+      if (err) err.style.display = 'none';
+      this.closeModal('modal-owner-key');
       this.openOwnerPortalModal();
     } else {
-      alert('Incorrect security key. Access denied.');
+      if (err) {
+        err.textContent = 'Incorrect security key. Access denied.';
+        err.style.display = 'block';
+      }
     }
   }
 
@@ -1160,9 +1198,58 @@ class HouseCupApp {
 
         let statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(234,179,8,0.15); color: #EAB308; font-weight: 700;">⏳ Awaiting Approval</span>`;
         if (isApproved) {
-          statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(40,181,119,0.15); color: #28B577; font-weight: 700;">✅ Approved (Code: ${appItem.verificationCode})</span>`;
+          statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(40,181,119,0.15); color: #28B577; font-weight: 700;">✅ Approved</span>`;
         } else if (isRejected) {
           statusBadge = `<span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(240,64,91,0.15); color: #F0405B; font-weight: 700;">❌ Rejected</span>`;
+        }
+
+        const safeName = (appItem.schoolName || 'Unnamed').replace(/'/g, "\\'");
+        const safeEmail = (appItem.schoolEmail || '').replace(/'/g, "\\'");
+        const safeCode = (appItem.schoolCode || '').replace(/'/g, "\\'");
+        const safeOtp = (appItem.verificationCode || '').replace(/'/g, "\\'");
+
+        const otpBox = `
+          <div style="background: rgba(244, 183, 64, 0.08); border: 1px dashed rgba(244, 183, 64, 0.35); border-radius: 8px; padding: 6px 10px; margin: 4px 0; font-size: 11.5px; color: var(--accent-gold); display: flex; justify-content: space-between; align-items: center;">
+            <span>🔑 <b>Activation OTP:</b> <span style="font-size: 15px; font-weight: 800; color: #FFF; letter-spacing: 2px; margin-left: 4px;">${appItem.verificationCode || 'N/A'}</span></span>
+            <button type="button" class="primary-btn" style="padding: 2px 8px; font-size: 10.5px; width: auto; background: rgba(255,255,255,0.08);" onclick="app.copyToClipboard('${safeOtp}', 'OTP code copied!')">📋 Copy OTP</button>
+          </div>
+        `;
+
+        let actionButtons = '';
+        if (!isApproved && !isRejected) {
+          actionButtons = `
+            <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+              <button class="primary-btn" style="flex: 1; min-width: 140px; padding: 8px; font-size: 12px; background: #28B577; color: #12141A; font-weight: 700;" onclick="app.executeOwnerApproval('${appItem.schoolId}', '${appItem.approvalToken}')">
+                ✅ Approve Request
+              </button>
+              <button class="primary-btn" style="padding: 8px 10px; font-size: 12px; background: rgba(47,114,224,0.2); color: #72a7ff; border: 1px solid rgba(47,114,224,0.4); width: auto;" onclick="app.openGmailComposerForSchool('${safeEmail}', '${safeName}', '${safeCode}', '${safeOtp}')" title="Dispatch OTP via Gmail from gargdaivik26@gmail.com">
+                ✉️ Gmail
+              </button>
+              <button class="primary-btn" style="padding: 8px 10px; font-size: 12px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.copySchoolActivationMessage('${safeName}', '${safeCode}', '${safeOtp}')" title="Copy full activation instructions">
+                📋 Copy
+              </button>
+              <button class="primary-btn" style="padding: 8px 10px; font-size: 12px; background: rgba(240,64,91,0.15); color: #F0405B; border: 1px solid rgba(240,64,91,0.3); width: auto;" onclick="app.executeOwnerRejection('${appItem.schoolId}', '${appItem.approvalToken}')">
+                ❌ Reject
+              </button>
+            </div>
+          `;
+        } else if (isApproved) {
+          actionButtons = `
+            <div style="display: flex; gap: 6px; margin-top: 4px; align-items: center; flex-wrap: wrap;">
+              <button class="primary-btn" style="padding: 6px 12px; font-size: 11px; background: rgba(47,114,224,0.2); color: #72a7ff; border: 1px solid rgba(47,114,224,0.4); width: auto;" onclick="app.openGmailComposerForSchool('${safeEmail}', '${safeName}', '${safeCode}', '${safeOtp}')">
+                ✉️ Send via Gmail (gargdaivik26@gmail.com)
+              </button>
+              <button class="primary-btn" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.copySchoolActivationMessage('${safeName}', '${safeCode}', '${safeOtp}')">
+                📋 Copy Message
+              </button>
+            </div>
+          `;
+        } else {
+          actionButtons = `
+            <div style="font-size: 11px; color: #F0405B; padding-top: 4px;">
+              Registration was denied by platform owner.
+            </div>
+          `;
         }
 
         card.innerHTML = `
@@ -1176,25 +1263,11 @@ class HouseCupApp {
           <div style="font-size: 11.5px; color: var(--text-sub);">
             🏛️ Houses: ${appItem.houses || 'Standard'} | ⏱️ Cycle: ${appItem.resetCycle === 'yearly' ? 'Yearly' : 'Term-Wise'}
           </div>
+          ${otpBox}
           <div style="font-size: 10.5px; color: var(--text-dim);">
             Submitted: ${appItem.timestamp ? new Date(appItem.timestamp).toLocaleString() : 'Recent'}
           </div>
-          ${!isApproved && !isRejected ? `
-            <div style="display: flex; gap: 8px; margin-top: 6px;">
-              <button class="primary-btn" style="flex: 1; padding: 8px; font-size: 12px; background: #28B577; color: #12141A; font-weight: 700;" onclick="app.executeOwnerApproval('${appItem.schoolId}', '${appItem.approvalToken}')">
-                ✅ Approve & Send OTP
-              </button>
-              <button class="primary-btn" style="flex: 1; padding: 8px; font-size: 12px; background: rgba(240,64,91,0.2); color: #F0405B; border: 1px solid rgba(240,64,91,0.4);" onclick="app.executeOwnerRejection('${appItem.schoolId}', '${appItem.approvalToken}')">
-                ❌ Reject
-              </button>
-            </div>
-          ` : `
-            <div style="display: flex; gap: 8px; margin-top: 4px;">
-              <button class="primary-btn" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.06); width: auto;" onclick="app.executeOwnerApproval('${appItem.schoolId}', '${appItem.approvalToken}')">
-                Re-Send Approval & OTP
-              </button>
-            </div>
-          `}
+          ${actionButtons}
         `;
         listEl.appendChild(card);
       });
@@ -1202,6 +1275,151 @@ class HouseCupApp {
       console.warn('Owner portal fetch error:', e);
       listEl.innerHTML = `<div style="text-align: center; color: #F0405B; padding: 20px;">Error loading queue: ${e.message}</div>`;
     }
+  }
+
+  // --- Gmail & Direct Dispatch Helpers ---
+  openGmailComposerForSchool(schoolEmail, schoolName, schoolCode, code) {
+    if (!schoolEmail) {
+      alert('No school email address available.');
+      return;
+    }
+    const subject = `[HouseLeague] Registration Approved! Your 6-Digit Activation Code for ${schoolName}`;
+    const body =
+      `Dear Administrator of ${schoolName},\n\n` +
+      `Your school registration on HouseLeague has been officially APPROVED by platform owner gargdaivik26@gmail.com!\n\n` +
+      `--------------------------------------------------\n` +
+      `YOUR 6-DIGIT ACTIVATION CODE (OTP): ${code}\n` +
+      `--------------------------------------------------\n\n` +
+      `Next Steps to Launch:\n` +
+      `1. Open HouseLeague: https://gargdaivik26-rgb.github.io/house-league/\n` +
+      `2. Enter your School Code: "${schoolCode}"\n` +
+      `3. Enter the 6-digit activation code above to launch your live house scoreboard!\n\n` +
+      `Welcome to HouseLeague!\n` +
+      `Platform Administrator: gargdaivik26@gmail.com`;
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(schoolEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const win = window.open(gmailUrl, '_blank');
+    if (!win) {
+      window.location.href = `mailto:${encodeURIComponent(schoolEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+  }
+
+  copySchoolActivationMessage(schoolName, schoolCode, code) {
+    const text =
+      `[HouseLeague] School Registration Approved!\n\n` +
+      `School: ${schoolName} (${schoolCode})\n` +
+      `6-Digit Activation Code (OTP): ${code}\n\n` +
+      `To launch your scoreboard:\n` +
+      `1. Go to: https://gargdaivik26-rgb.github.io/house-league/\n` +
+      `2. Enter School Code: ${schoolCode}\n` +
+      `3. Enter the 6-digit code: ${code}\n\n` +
+      `Platform Administrator: gargdaivik26@gmail.com`;
+
+    this.copyToClipboard(text, '📋 Activation message & OTP copied to clipboard!');
+  }
+
+  triggerCurrentGmailComposer() {
+    if (this.currentApprovedSchoolData) {
+      const { schoolEmail, schoolName, schoolCode, code } = this.currentApprovedSchoolData;
+      this.openGmailComposerForSchool(schoolEmail, schoolName, schoolCode, code);
+    }
+  }
+
+  copyCurrentActivationMessage() {
+    if (this.currentApprovedSchoolData) {
+      const { schoolName, schoolCode, code } = this.currentApprovedSchoolData;
+      this.copySchoolActivationMessage(schoolName, schoolCode, code);
+    }
+  }
+
+  copyToClipboard(text, msg = 'Copied to clipboard!') {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.showToast(msg);
+      }).catch(() => {
+        prompt('Copy this message:', text);
+      });
+    } else {
+      prompt('Copy this message:', text);
+    }
+  }
+
+  // --- EmailJS Optional Settings ---
+  toggleEmailJsSettings() {
+    const panel = document.getElementById('emailjs-settings-panel');
+    const arrow = document.getElementById('emailjs-toggle-arrow');
+    if (panel) {
+      const isHidden = panel.style.display === 'none';
+      panel.style.display = isHidden ? 'block' : 'none';
+      if (arrow) arrow.textContent = isHidden ? '▲ Hide' : '▼ Configure';
+      if (isHidden) {
+        const cfg = this.getEmailJsConfig();
+        const pk = document.getElementById('cfg-emailjs-public-key');
+        const sid = document.getElementById('cfg-emailjs-service-id');
+        const tid = document.getElementById('cfg-emailjs-template-id');
+        if (pk && cfg.publicKey) pk.value = cfg.publicKey;
+        if (sid && cfg.serviceId) sid.value = cfg.serviceId;
+        if (tid && cfg.templateId) tid.value = cfg.templateId;
+      }
+    }
+  }
+
+  getEmailJsConfig() {
+    try {
+      const raw = localStorage.getItem('houseleague_emailjs_config');
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { publicKey: '', serviceId: '', templateId: '' };
+  }
+
+  saveEmailJsConfig() {
+    const pk = (document.getElementById('cfg-emailjs-public-key')?.value || '').trim();
+    const sid = (document.getElementById('cfg-emailjs-service-id')?.value || '').trim();
+    const tid = (document.getElementById('cfg-emailjs-template-id')?.value || '').trim();
+
+    const cfg = { publicKey: pk, serviceId: sid, templateId: tid };
+    localStorage.setItem('houseleague_emailjs_config', JSON.stringify(cfg));
+    if (this.cloudDb) {
+      this.cloudDb.ref('system_config/emailjs').set(cfg);
+    }
+    this.showToast('EmailJS configuration saved!');
+  }
+
+  async testEmailJsConfig() {
+    const cfg = this.getEmailJsConfig();
+    if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) {
+      alert('Please fill in Public Key, Service ID, and Template ID before testing.');
+      return;
+    }
+    this.showToast('Sending test email via EmailJS...');
+    const ok = await this.sendEmailViaEmailJS('gargdaivik26@gmail.com', 'Platform Owner', '[HouseLeague Test] EmailJS Connected', 'This is a test email confirming EmailJS automation is successfully linked to your app.');
+    if (ok) {
+      alert('✅ Test email successfully sent to gargdaivik26@gmail.com via EmailJS!');
+    } else {
+      alert('⚠️ EmailJS test failed. Please verify your Public Key, Service ID, and Template ID in your EmailJS dashboard.');
+    }
+  }
+
+  async sendEmailViaEmailJS(toEmail, toName, subject, message) {
+    const cfg = this.getEmailJsConfig();
+    if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) return false;
+    try {
+      if (typeof emailjs !== 'undefined') {
+        emailjs.init({ publicKey: cfg.publicKey });
+        const res = await emailjs.send(cfg.serviceId, cfg.templateId, {
+          to_email: toEmail,
+          to_name: toName,
+          subject: subject,
+          message: message,
+          from_name: 'HouseLeague Platform Owner (gargdaivik26@gmail.com)'
+        });
+        console.log('EmailJS dispatch success:', res);
+        return true;
+      }
+    } catch (e) {
+      console.warn('EmailJS dispatch error:', e);
+    }
+    return false;
   }
 
   backToRegistrationForm() {
@@ -2886,6 +3104,29 @@ class HouseCupApp {
       if (this.activeSchoolId) {
         this.listenToSchoolCloud(this.activeSchoolId);
       }
+
+      // Real-time listener for pending school registrations to update entry screen badge
+      this.cloudDb.ref('pending_registrations').on('value', (snap) => {
+        const data = snap.val() || {};
+        const pendingList = Object.values(data).filter(s => s && s.approvalStatus === 'pending_approval');
+        const badge = document.getElementById('owner-pending-badge');
+        if (badge) {
+          if (pendingList.length > 0) {
+            badge.textContent = `🔔 ${pendingList.length} Pending`;
+            badge.style.display = 'inline-block';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+      });
+
+      // Sync system config (such as EmailJS settings)
+      this.cloudDb.ref('system_config/emailjs').once('value').then(snap => {
+        const val = snap.val();
+        if (val && val.publicKey) {
+          localStorage.setItem('houseleague_emailjs_config', JSON.stringify(val));
+        }
+      }).catch(e => console.warn('EmailJS cloud config read error', e));
     } catch (e) {
       console.warn('Firebase init error:', e);
       this.updateCloudStatusUI(false, e.message);
