@@ -654,9 +654,6 @@ class HouseCupApp {
       params.append('subject', emailSubject);
       params.append('message', emailBody);
 
-      // Attempt background EmailJS dispatch to platform owner if configured
-      this.sendEmailViaEmailJS('gargdaivik26@gmail.com', 'Platform Owner', emailSubject, emailBody);
-
       fetch('https://shipmyform.com/to/gargdaivik26@gmail.com', {
         method: 'POST',
         headers: {
@@ -764,8 +761,6 @@ class HouseCupApp {
           `3. Enter the 6-digit activation code above to launch your live house scoreboard!\n\n` +
           `Welcome to HouseLeague!\n` +
           `Platform Administrator: gargdaivik26@gmail.com`;
-
-        this.sendEmailViaEmailJS(schEmail, schName, otpSubject, otpMessage);
       }
 
       // 2. Show approval success modal with prominent OTP and 1-Click Gmail composer
@@ -1344,82 +1339,72 @@ class HouseCupApp {
     }
   }
 
-  // --- EmailJS Optional Settings ---
-  toggleEmailJsSettings() {
-    const panel = document.getElementById('emailjs-settings-panel');
-    const arrow = document.getElementById('emailjs-toggle-arrow');
+  // --- Platform Owner Security Key Management ---
+  toggleOwnerKeySettings() {
+    const panel = document.getElementById('owner-key-settings-panel');
+    const arrow = document.getElementById('owner-key-toggle-arrow');
     if (panel) {
       const isHidden = panel.style.display === 'none';
       panel.style.display = isHidden ? 'block' : 'none';
-      if (arrow) arrow.textContent = isHidden ? '▲ Hide' : '▼ Configure';
+      if (arrow) arrow.textContent = isHidden ? '▲ Close' : '▼ Change Code';
       if (isHidden) {
-        const cfg = this.getEmailJsConfig();
-        const pk = document.getElementById('cfg-emailjs-public-key');
-        const sid = document.getElementById('cfg-emailjs-service-id');
-        const tid = document.getElementById('cfg-emailjs-template-id');
-        if (pk && cfg.publicKey) pk.value = cfg.publicKey;
-        if (sid && cfg.serviceId) sid.value = cfg.serviceId;
-        if (tid && cfg.templateId) tid.value = cfg.templateId;
+        const input = document.getElementById('cfg-new-owner-key');
+        if (input) {
+          input.value = '';
+          setTimeout(() => input.focus(), 150);
+        }
       }
     }
   }
 
-  getEmailJsConfig() {
-    try {
-      const raw = localStorage.getItem('houseleague_emailjs_config');
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    return { publicKey: '', serviceId: '', templateId: '' };
-  }
-
-  saveEmailJsConfig() {
-    const pk = (document.getElementById('cfg-emailjs-public-key')?.value || '').trim();
-    const sid = (document.getElementById('cfg-emailjs-service-id')?.value || '').trim();
-    const tid = (document.getElementById('cfg-emailjs-template-id')?.value || '').trim();
-
-    const cfg = { publicKey: pk, serviceId: sid, templateId: tid };
-    localStorage.setItem('houseleague_emailjs_config', JSON.stringify(cfg));
-    if (this.cloudDb) {
-      this.cloudDb.ref('system_config/emailjs').set(cfg);
-    }
-    this.showToast('EmailJS configuration saved!');
-  }
-
-  async testEmailJsConfig() {
-    const cfg = this.getEmailJsConfig();
-    if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) {
-      alert('Please fill in Public Key, Service ID, and Template ID before testing.');
+  saveNewOwnerKey() {
+    const input = document.getElementById('cfg-new-owner-key');
+    const newKey = (input ? input.value : '').trim();
+    if (!newKey) {
+      alert('Please enter a valid security code.');
       return;
     }
-    this.showToast('Sending test email via EmailJS...');
-    const ok = await this.sendEmailViaEmailJS('gargdaivik26@gmail.com', 'Platform Owner', '[HouseLeague Test] EmailJS Connected', 'This is a test email confirming EmailJS automation is successfully linked to your app.');
-    if (ok) {
-      alert('✅ Test email successfully sent to gargdaivik26@gmail.com via EmailJS!');
-    } else {
-      alert('⚠️ EmailJS test failed. Please verify your Public Key, Service ID, and Template ID in your EmailJS dashboard.');
+    if (newKey.length < 3) {
+      alert('Security code must be at least 3 characters long.');
+      return;
     }
+
+    localStorage.setItem('houseleague_owner_key', newKey);
+    if (this.cloudDb) {
+      this.cloudDb.ref('system_config/owner_key').set(newKey);
+    }
+    this.showToast('✅ Platform Owner Security Code updated successfully!');
+    if (input) input.value = '';
+    this.toggleOwnerKeySettings();
   }
 
-  async sendEmailViaEmailJS(toEmail, toName, subject, message) {
-    const cfg = this.getEmailJsConfig();
-    if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) return false;
-    try {
-      if (typeof emailjs !== 'undefined') {
-        emailjs.init({ publicKey: cfg.publicKey });
-        const res = await emailjs.send(cfg.serviceId, cfg.templateId, {
-          to_email: toEmail,
-          to_name: toName,
-          subject: subject,
-          message: message,
-          from_name: 'HouseLeague Platform Owner (gargdaivik26@gmail.com)'
-        });
-        console.log('EmailJS dispatch success:', res);
-        return true;
-      }
-    } catch (e) {
-      console.warn('EmailJS dispatch error:', e);
+  // --- School Dispatch to Platform Owner ---
+  schoolSendEmailToOwner() {
+    const p = this.pendingRegistration;
+    if (!p) {
+      alert('No pending registration data available.');
+      return;
     }
-    return false;
+    const cycleText = p.resetCycle === 'yearly' ? 'Yearly / Annual' : 'Term-Wise (2 Terms)';
+    const housesList = (p.houses || []).map(h => `${h.emblem || '🛡️'} ${h.name}`).join(', ');
+
+    const subject = `[HouseLeague Registration Review] New School: ${p.name} (${p.code})`;
+    const body =
+      `Hello Platform Owner,\n\n` +
+      `We have submitted our school registration on HouseLeague and are requesting your approval:\n\n` +
+      `• School Name: ${p.name}\n` +
+      `• School Code: ${p.code}\n` +
+      `• Official Email: ${p.email}\n` +
+      `• Points Reset Cycle: ${cycleText}\n` +
+      `• Houses: ${housesList}\n\n` +
+      `Please review and approve our school in the Platform Owner Portal.\n\n` +
+      `Thank you!`;
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=gargdaivik26@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const win = window.open(gmailUrl, '_blank');
+    if (!win) {
+      window.location.href = `mailto:gargdaivik26@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
   }
 
   backToRegistrationForm() {
@@ -3120,13 +3105,13 @@ class HouseCupApp {
         }
       });
 
-      // Sync system config (such as EmailJS settings)
-      this.cloudDb.ref('system_config/emailjs').once('value').then(snap => {
+      // Sync system config (such as custom Owner Security Key across all devices)
+      this.cloudDb.ref('system_config/owner_key').on('value', snap => {
         const val = snap.val();
-        if (val && val.publicKey) {
-          localStorage.setItem('houseleague_emailjs_config', JSON.stringify(val));
+        if (val) {
+          localStorage.setItem('houseleague_owner_key', String(val).trim());
         }
-      }).catch(e => console.warn('EmailJS cloud config read error', e));
+      });
     } catch (e) {
       console.warn('Firebase init error:', e);
       this.updateCloudStatusUI(false, e.message);

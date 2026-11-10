@@ -701,7 +701,12 @@
             <!-- STATE 1: PENDING APPROVAL VIEW -->
             <div id="verify-section-pending" style="display: block; padding: 6px 0;">
               <div style="background: rgba(47, 114, 224, 0.1); border: 1px solid rgba(47, 114, 224, 0.3); border-radius: 8px; padding: 10px 12px; font-size: 11.5px; color: #5B9BFF; text-align: left; line-height: 1.45; margin-bottom: 12px;">
-                ℹ️ To protect against unauthorized creation, registrations require approval from platform owner <b>gargdaivik26@gmail.com</b>. As soon as approved, a 6-digit activation OTP will be dispatched to your school email, and this window will automatically unlock.
+                ℹ️ To protect against unauthorized creation, registrations require approval from platform owner <b>gargdaivik26@gmail.com</b>. As soon as approved, your 6-digit activation OTP will be provided, and this window will automatically unlock.
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;">
+                <button type="button" class="primary-btn" style="background: rgba(47, 114, 224, 0.2); color: #72a7ff; border: 1px solid rgba(47, 114, 224, 0.4); font-size: 12px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="app.schoolSendEmailToOwner()">
+                  ✉️ Email Application Summary to gargdaivik26@gmail.com
+                </button>
               </div>
               <div style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--text-dim); margin: 6px 0;">
                 <span class="sync-dot" style="background: #28B577;"></span> Live approval listener active (no refresh needed)
@@ -780,24 +785,27 @@
             Logged in as Platform Owner (<b>gargdaivik26@gmail.com</b>). Review pending school applications. Approving a request reveals their 6-digit OTP and provides 1-click dispatch to the school.
           </div>
 
-          <!-- Optional EmailJS Automation Settings Card -->
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 9px; padding: 8px 12px; margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="app.toggleEmailJsSettings()">
-              <span style="font-size: 11.5px; font-weight: 600; color: var(--accent-gold);">⚙️ Automated Email Dispatch (EmailJS - Optional)</span>
-              <span id="emailjs-toggle-arrow" style="font-size: 11px; color: var(--text-sub);">▼ Configure</span>
-            </div>
-            <div id="emailjs-settings-panel" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11.5px;">
-              <div style="color: var(--text-dim); margin-bottom: 6px; line-height: 1.35;">
-                Connect EmailJS to automatically send OTPs from <b>gargdaivik26@gmail.com</b> without opening Gmail:
+          <!-- Change Platform Owner Security Code / PIN Card -->
+          <div style="background: rgba(244, 183, 64, 0.05); border: 1px solid rgba(244, 183, 64, 0.25); border-radius: 9px; padding: 10px 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="app.toggleOwnerKeySettings()">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span>🔐</span>
+                <span style="font-size: 12px; font-weight: 700; color: var(--accent-gold);">Change Platform Owner Security Code</span>
               </div>
-              <div style="display: flex; flex-direction: column; gap: 6px;">
-                <input type="text" id="cfg-emailjs-public-key" class="input-field" placeholder="EmailJS Public Key">
-                <input type="text" id="cfg-emailjs-service-id" class="input-field" placeholder="EmailJS Service ID (e.g. service_gmail)">
-                <input type="text" id="cfg-emailjs-template-id" class="input-field" placeholder="EmailJS Template ID (e.g. template_otp)">
-                <div style="display: flex; gap: 6px;">
-                  <button type="button" class="primary-btn" style="flex: 1; padding: 6px; font-size: 11px; background: var(--accent-gold); color: #12141A; font-weight: 700;" onclick="app.saveEmailJsConfig()">💾 Save EmailJS Keys</button>
-                  <button type="button" class="primary-btn" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.testEmailJsConfig()">🧪 Send Test Email</button>
+              <span id="owner-key-toggle-arrow" style="font-size: 11px; color: var(--text-sub);">▼ Change Code</span>
+            </div>
+            <div id="owner-key-settings-panel" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 12px;">
+              <div style="color: var(--text-dim); margin-bottom: 8px; line-height: 1.4;">
+                Set your custom Security Code/PIN to access this portal. Once saved, it syncs across all your devices:
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div class="password-field-wrapper" style="flex: 1;">
+                  <input type="password" id="cfg-new-owner-key" class="input-field" placeholder="Enter New Security Code" style="margin-bottom: 0;">
+                  <button type="button" class="btn-toggle-pwd" onclick="app.togglePasswordVisibility('cfg-new-owner-key', this)" title="Show Code">👁️</button>
                 </div>
+                <button type="button" class="primary-btn" style="width: auto; padding: 10px 16px; font-size: 12px; font-weight: 700; background: var(--accent-gold); color: #12141A; white-space: nowrap;" onclick="app.saveNewOwnerKey()">
+                  💾 Save Code
+                </button>
               </div>
             </div>
           </div>
@@ -1069,9 +1077,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  <!-- EmailJS SDK for browser-direct email dispatch -->
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-
-  <script src="app.js?v=8.0"></script>
+  <script src="app.js?v=9.0"></script>
 </body>
 </html>
