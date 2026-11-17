@@ -1080,22 +1080,13 @@ class HouseCupApp {
       this.syncSchoolToCloud(this.pendingRegistration.id);
     }
 
-    // Re-dispatch OTP to school email
+    // Re-dispatch OTP: notification recorded in cloud
     const sch = this.pendingRegistration;
-    if (sch.email) {
-      const params = new URLSearchParams();
-      params.append('name', 'HouseLeague Platform Owner (gargdaivik26@gmail.com)');
-      params.append('schoolName', sch.name);
-      params.append('schoolCode', sch.code);
-      params.append('verificationCode', newCode);
-      params.append('subject', `[HouseLeague] New Activation Code for ${sch.name}`);
-      params.append('message', `Your new 6-digit activation code for ${sch.name} on HouseLeague is: ${newCode}`);
-
-      fetch(`https://shipmyform.com/to/${encodeURIComponent(sch.email)}`, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
-      }).catch(() => {});
+    if (this.cloudDb && sch) {
+      this.cloudDb.ref('pending_registrations/' + sch.id).update({ verificationCode: newCode });
+      if (sch.code) {
+        this.cloudDb.ref('pending_registrations_by_code/' + sch.code.toUpperCase()).update({ verificationCode: newCode });
+      }
     }
 
     const inputEl = document.getElementById('reg-verify-code-input');
