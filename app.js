@@ -643,28 +643,33 @@ class HouseCupApp {
         `You can also approve/reject directly inside the app's Platform Owner Portal.\n` +
         `(Local testing link: http://localhost:3001/?action=approve&id=${pending.id}&token=${pending.approvalToken})\n`;
 
-      const params = new URLSearchParams();
-      params.append('name', 'HouseLeague Platform Review');
-      params.append('schoolName', pending.name);
-      params.append('schoolCode', pending.code);
-      params.append('officialEmail', pending.email);
-      params.append('cycle', cycleText);
-      params.append('houses', housesSummary);
       const emailSubject = `[HouseLeague Approval Needed] New School: ${pending.name} (${pending.code})`;
-      params.append('subject', emailSubject);
-      params.append('message', emailBody);
 
-      fetch('https://shipmyform.com/to/gargdaivik26@gmail.com', {
+      // Primary Dispatch: Web3Forms Gateway (Direct delivery to gargdaivik26@gmail.com)
+      const web3FormsPayload = {
+        access_key: 'd708f574-c6dc-417a-a3d7-451cd5592dd6',
+        from_name: 'HouseLeague Platform',
+        subject: emailSubject,
+        school_name: pending.name,
+        school_code: pending.code,
+        official_email: pending.email,
+        reset_cycle: cycleText,
+        houses: housesSummary,
+        admin_pin: '[CONFIDENTIAL — HIDDEN FOR SECURITY]',
+        message: emailBody
+      };
+
+      fetch('https://api.web3forms.com/submit', {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: params.toString()
+        body: JSON.stringify(web3FormsPayload)
       }).then(r => r.json()).then(res => {
-        console.log('Review request dispatched to gargdaivik26@gmail.com:', res);
+        console.log('Web3Forms review alert delivered to gargdaivik26@gmail.com:', res);
       }).catch(err => {
-        console.warn('ShipMyForm error:', err);
+        console.warn('Web3Forms dispatch error:', err);
       });
     } catch (e) {
       console.warn('Email dispatch error:', e);
