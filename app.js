@@ -86,7 +86,7 @@ class HouseCupApp {
 
   // --- Persistence with Clean Reset to No School ---
   loadStorage() {
-    const RESET_KEY = 'housecup_saas_reset_v10_zero_schools';
+    const RESET_KEY = 'housecup_saas_reset_v11_zero_schools';
     // User requested to reset data to zero schools for clean testing restart
     if (localStorage.getItem(RESET_KEY) !== 'done') {
       localStorage.removeItem('housecup_saas_schools');
@@ -275,7 +275,7 @@ class HouseCupApp {
 
     // Check if the school was rejected by platform owner!
     if (matched.status === 'rejected' || matched.approvalStatus === 'rejected') {
-      err.textContent = `❌ Registration Denied: The registration request for "${matched.name}" (${matched.code}) was denied by the platform owner (gargdaivik26@gmail.com).`;
+      err.textContent = `❌ Registration Denied: The registration request for "${matched.name}" (${matched.code}) was denied by the platform owner (houseleagueadmin@gmail.com).`;
       err.style.display = 'block';
       return;
     }
@@ -346,7 +346,7 @@ class HouseCupApp {
 
     // Check if school was rejected
     if (this.schools[schId] && (this.schools[schId].status === 'rejected' || this.schools[schId].approvalStatus === 'rejected')) {
-      alert(`Registration for "${this.schools[schId].name}" was denied by the platform owner (gargdaivik26@gmail.com).`);
+      alert(`Registration for "${this.schools[schId].name}" was denied by the platform owner (houseleagueadmin@gmail.com).`);
       return;
     }
 
@@ -473,7 +473,7 @@ class HouseCupApp {
     const existing = this.schools[id];
     if (existing) {
       if (existing.status === 'rejected' || existing.approvalStatus === 'rejected') {
-        alert(`❌ The registration request for school code "${code}" was previously rejected by the platform administrator (gargdaivik26@gmail.com).`);
+        alert(`❌ The registration request for school code "${code}" was previously rejected by the platform administrator (houseleagueadmin@gmail.com).`);
         return;
       }
       if (existing.approvalStatus === 'pending_approval' || existing.status === 'pending_approval') {
@@ -564,7 +564,7 @@ class HouseCupApp {
     this.saveStorage();
     this.syncSchoolToCloud(id);
 
-    // Dispatch review email to platform owner (gargdaivik26@gmail.com)
+    // Dispatch review email to platform owner (houseleagueadmin@gmail.com)
     this.dispatchOwnerReviewEmail(this.pendingRegistration);
 
     // Close registration modal & open verification modal in awaiting approval state
@@ -582,7 +582,7 @@ class HouseCupApp {
           schoolCode: pending.code,
           schoolName: pending.name,
           schoolEmail: pending.email,
-          adminNotificationEmail: 'gargdaivik26@gmail.com',
+          adminNotificationEmail: 'houseleagueadmin@gmail.com',
           verificationCode: pending.verificationCode,
           approvalToken: pending.approvalToken,
           approvalStatus: 'pending_approval',
@@ -606,7 +606,7 @@ class HouseCupApp {
       console.warn('Firebase pending write error:', e);
     }
 
-    // 2. Dispatch email to Platform Owner (gargdaivik26@gmail.com)
+    // 2. Dispatch email to Platform Owner (houseleagueadmin@gmail.com)
     try {
       const housesSummary = pending.houses.map(h => `${h.emblem || '🛡️'} ${h.name} (${h.color})`).join(', ');
       const cycleText = pending.resetCycle === 'yearly' ? 'Yearly / Annual' : 'Term-Wise (2 Terms)';
@@ -645,9 +645,9 @@ class HouseCupApp {
 
       const emailSubject = `[HouseLeague Approval Needed] New School: ${pending.name} (${pending.code})`;
 
-      // Primary Dispatch: Web3Forms Gateway (Direct delivery to gargdaivik26@gmail.com)
+      // Primary Dispatch: Web3Forms Gateway (Direct delivery to houseleagueadmin@gmail.com)
       const web3FormsPayload = {
-        access_key: 'd708f574-c6dc-417a-a3d7-451cd5592dd6',
+        access_key: '0345965a-7a37-4590-b3f6-bba753862735',
         from_name: 'HouseLeague Platform',
         subject: emailSubject,
         school_name: pending.name,
@@ -667,7 +667,7 @@ class HouseCupApp {
         },
         body: JSON.stringify(web3FormsPayload)
       }).then(r => r.json()).then(res => {
-        console.log('Web3Forms review alert delivered to gargdaivik26@gmail.com:', res);
+        console.log('Web3Forms review alert delivered to houseleagueadmin@gmail.com:', res);
       }).catch(err => {
         console.warn('Web3Forms dispatch error:', err);
       });
@@ -756,7 +756,7 @@ class HouseCupApp {
         const otpSubject = `[HouseLeague] Registration Approved! Your 6-Digit Activation Code for ${schName}`;
         const otpMessage =
           `Dear Administrator of ${schName},\n\n` +
-          `Your school registration on HouseLeague has been officially APPROVED by platform owner gargdaivik26@gmail.com!\n\n` +
+          `Your school registration on HouseLeague has been officially APPROVED by platform owner houseleagueadmin@gmail.com!\n\n` +
           `--------------------------------------------------\n` +
           `YOUR 6-DIGIT ACTIVATION CODE (OTP): ${code}\n` +
           `--------------------------------------------------\n\n` +
@@ -765,7 +765,7 @@ class HouseCupApp {
           `2. Enter your School Code: "${schCode}"\n` +
           `3. Enter the 6-digit activation code above to launch your live house scoreboard!\n\n` +
           `Welcome to HouseLeague!\n` +
-          `Platform Administrator: gargdaivik26@gmail.com`;
+          `Platform Administrator: houseleagueadmin@gmail.com`;
       }
 
       // 2. Show approval success modal with prominent OTP and 1-Click Gmail composer
@@ -893,7 +893,7 @@ class HouseCupApp {
     if (approvalStatus === 'pending_approval') {
       if (iconEl) iconEl.textContent = '⏳';
       if (titleEl) titleEl.textContent = `Reviewing "${pending.name}" (${pending.code})`;
-      if (descEl) descEl.innerHTML = `Your application has been submitted to platform owner (<b>gargdaivik26@gmail.com</b>).`;
+      if (descEl) descEl.innerHTML = `Your application has been submitted to platform owner (<b>houseleagueadmin@gmail.com</b>).`;
       if (statusDot) statusDot.style.background = '#EAB308';
       if (statusText) {
         statusText.textContent = '⏳ Awaiting Owner Approval';
@@ -991,7 +991,7 @@ class HouseCupApp {
     }
 
     if (this.pendingRegistration.approvalStatus !== 'approved') {
-      alert('This school is still awaiting platform owner approval. Please wait until approved by gargdaivik26@gmail.com.');
+      alert('This school is still awaiting platform owner approval. Please wait until approved by houseleagueadmin@gmail.com.');
       return;
     }
 
@@ -1112,9 +1112,9 @@ class HouseCupApp {
     const input = document.getElementById('input-owner-security-key');
     const err = document.getElementById('owner-key-error');
     const val = (input ? input.value : '').trim();
-    const validKey = localStorage.getItem('houseleague_owner_key') || 'gargdaivik26';
+    const validKey = localStorage.getItem('houseleague_owner_key') || 'houseleagueadmin';
 
-    if (val === validKey || val === 'admin' || val === 'gargdaivik26@gmail.com') {
+    if (val === validKey || val === 'admin' || val === 'houseleagueadmin@gmail.com' || val === 'houseleagueadmin' || val === 'gargdaivik26' || val === 'gargdaivik26@gmail.com') {
       if (err) err.style.display = 'none';
       this.closeModal('modal-owner-key');
       this.openOwnerPortalModal();
@@ -1213,7 +1213,7 @@ class HouseCupApp {
               <button class="primary-btn" style="flex: 1; min-width: 140px; padding: 8px; font-size: 12px; background: #28B577; color: #12141A; font-weight: 700;" onclick="app.executeOwnerApproval('${appItem.schoolId}', '${appItem.approvalToken}')">
                 ✅ Approve Request
               </button>
-              <button class="primary-btn" style="padding: 8px 10px; font-size: 12px; background: rgba(47,114,224,0.2); color: #72a7ff; border: 1px solid rgba(47,114,224,0.4); width: auto;" onclick="app.openGmailComposerForSchool('${safeEmail}', '${safeName}', '${safeCode}', '${safeOtp}')" title="Dispatch OTP via Gmail from gargdaivik26@gmail.com">
+              <button class="primary-btn" style="padding: 8px 10px; font-size: 12px; background: rgba(47,114,224,0.2); color: #72a7ff; border: 1px solid rgba(47,114,224,0.4); width: auto;" onclick="app.openGmailComposerForSchool('${safeEmail}', '${safeName}', '${safeCode}', '${safeOtp}')" title="Dispatch OTP via Gmail from houseleagueadmin@gmail.com">
                 ✉️ Gmail
               </button>
               <button class="primary-btn" style="padding: 8px 10px; font-size: 12px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.copySchoolActivationMessage('${safeName}', '${safeCode}', '${safeOtp}')" title="Copy full activation instructions">
@@ -1228,7 +1228,7 @@ class HouseCupApp {
           actionButtons = `
             <div style="display: flex; gap: 6px; margin-top: 4px; align-items: center; flex-wrap: wrap;">
               <button class="primary-btn" style="padding: 6px 12px; font-size: 11px; background: rgba(47,114,224,0.2); color: #72a7ff; border: 1px solid rgba(47,114,224,0.4); width: auto;" onclick="app.openGmailComposerForSchool('${safeEmail}', '${safeName}', '${safeCode}', '${safeOtp}')">
-                ✉️ Send via Gmail (gargdaivik26@gmail.com)
+                ✉️ Send via Gmail (houseleagueadmin@gmail.com)
               </button>
               <button class="primary-btn" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.08); width: auto;" onclick="app.copySchoolActivationMessage('${safeName}', '${safeCode}', '${safeOtp}')">
                 📋 Copy Message
@@ -1277,7 +1277,7 @@ class HouseCupApp {
     const subject = `[HouseLeague] Registration Approved! Your 6-Digit Activation Code for ${schoolName}`;
     const body =
       `Dear Administrator of ${schoolName},\n\n` +
-      `Your school registration on HouseLeague has been officially APPROVED by platform owner gargdaivik26@gmail.com!\n\n` +
+      `Your school registration on HouseLeague has been officially APPROVED by platform owner houseleagueadmin@gmail.com!\n\n` +
       `--------------------------------------------------\n` +
       `YOUR 6-DIGIT ACTIVATION CODE (OTP): ${code}\n` +
       `--------------------------------------------------\n\n` +
@@ -1286,7 +1286,7 @@ class HouseCupApp {
       `2. Enter your School Code: "${schoolCode}"\n` +
       `3. Enter the 6-digit activation code above to launch your live house scoreboard!\n\n` +
       `Welcome to HouseLeague!\n` +
-      `Platform Administrator: gargdaivik26@gmail.com`;
+      `Platform Administrator: houseleagueadmin@gmail.com`;
 
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(schoolEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     const win = window.open(gmailUrl, '_blank');
@@ -1304,7 +1304,7 @@ class HouseCupApp {
       `1. Go to: https://gargdaivik26-rgb.github.io/house-league/\n` +
       `2. Enter School Code: ${schoolCode}\n` +
       `3. Enter the 6-digit code: ${code}\n\n` +
-      `Platform Administrator: gargdaivik26@gmail.com`;
+      `Platform Administrator: houseleagueadmin@gmail.com`;
 
     this.copyToClipboard(text, '📋 Activation message & OTP copied to clipboard!');
   }
@@ -1396,10 +1396,10 @@ class HouseCupApp {
       `Please review and approve our school in the Platform Owner Portal.\n\n` +
       `Thank you!`;
 
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=gargdaivik26@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=houseleagueadmin@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     const win = window.open(gmailUrl, '_blank');
     if (!win) {
-      window.location.href = `mailto:gargdaivik26@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = `mailto:houseleagueadmin@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
   }
 
